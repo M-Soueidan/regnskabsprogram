@@ -18,8 +18,22 @@ function parseDanishNumber(s: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-/** Datoer: 19.04.24 12:37 eller 19-04-2024 */
+/** Datoer: 19.04.24 12:37, 19-04-2024, eller efter "Fakturadato" */
 function extractDate(text: string): { display: string; iso: string } | null {
+  const invoiceLabel =
+    /(?:Faktura|faktura|Fakturadato|Dato)[:\s]+(\d{1,2})[\.\-/](\d{1,2})[\.\-/](\d{2,4})/i.exec(
+      text,
+    )
+  if (invoiceLabel) {
+    let d = parseInt(invoiceLabel[1], 10)
+    const mo = parseInt(invoiceLabel[2], 10)
+    let y = parseInt(invoiceLabel[3], 10)
+    if (y < 100) y += 2000
+    if (d <= 31 && mo <= 12) {
+      const iso = `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      return { display: invoiceLabel[0].trim(), iso }
+    }
+  }
   const re =
     /\b(\d{1,2})[\.\-/](\d{1,2})[\.\-/](\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/
   const m = text.match(re)
@@ -33,15 +47,18 @@ function extractDate(text: string): { display: string; iso: string } | null {
   return { display: m[0].trim(), iso }
 }
 
-/** Total: AT BETALE, TOTAL, TIL BETALING, SUM */
+/** Total: AT BETALE, TOTAL, TIL BETALING, SUM, faktura-typiske linjer */
 function extractTotal(lines: string[]): number | null {
   const joined = lines.join('\n').toUpperCase()
   const patterns = [
     /AT\s+BETALE[:\s]+([\d\s.,]+)/i,
     /TIL\s+BETALING[:\s]+([\d\s.,]+)/i,
-    /TOTAL[:\s]+([\d\s.,]+)/i,
+    /TOTAL\s*(?:INKL|EX|MOMS)?[:\s]+([\d\s.,]+)/i,
     /SUM[:\s]+([\d\s.,]+)/i,
     /BETALT[:\s]+([\d\s.,]+)/i,
+    /BEL[ØO]B\s+I\s+ALT[:\s]+([\d\s.,]+)/i,
+    /SAMLET\s+(?:PRIS|BEL[ØO]B)[:\s]+([\d\s.,]+)/i,
+    /(?:^|\s)DKK\s*([\d\s.,]+)/i,
     /DKK\s*([\d\s.,]+)\s*$/im,
   ]
   for (const p of patterns) {

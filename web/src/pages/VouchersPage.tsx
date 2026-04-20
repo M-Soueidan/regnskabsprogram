@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
 import { logActivity } from '@/lib/activity'
 import { formatDateTime, formatDkk } from '@/lib/format'
+import { formatParsedNotes, parseDanishReceiptText } from '@/lib/receiptParse'
+import { ocrImageOrPdfFile } from '@/lib/voucherOcr'
 import type { Database } from '@/types/database'
 
 type Voucher = Database['public']['Tables']['vouchers']['Row']
@@ -23,6 +25,8 @@ export function VouchersPage() {
   const [grossKr, setGrossKr] = useState('')
   const [vatRate, setVatRate] = useState('25')
   const [error, setError] = useState<string | null>(null)
+  const [ocrWarning, setOcrWarning] = useState<string | null>(null)
+  const [ocrProgress, setOcrProgress] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function openDesktopFilePicker() {
@@ -53,8 +57,45 @@ export function VouchersPage() {
     if (!file || !currentCompany || !user) return
     setUploading(true)
     setError(null)
+    setOcrWarning(null)
+    setOcrProgress(null)
 
-    const grossCents = Math.round((parseFloat(grossKr.replace(',', '.')) || 0) * 100)
+    const canOcr =
+      file.type === 'application/pdf' ||
+      file.type.startsWith('image/') ||
+      file.name.toLowerCase().endsWith('.pdf')
+
+    let titleForDb = title.trim() || file.name.replace(/\.[^.]+$/, '')
+    let expenseDateForDb = expenseDate
+    let grossKrForDb = grossKr
+    let notesForDb: string | null = null
+
+    if (canOcr) {
+      try {
+        const text = await ocrImageOrPdfFile(file, (p) => setOcrProgress(p))
+        const parsed = parseDanishReceiptText(text)
+        notesForDb = formatParsedNotes(parsed)
+        if (!title.trim()) {
+          titleForDb = parsed.merchantGuess ?? titleForDb
+        }
+        if (parsed.expenseDateIso) {
+          expenseDateForDb = parsed.expenseDateIso
+        }
+        if (parsed.totalKr != null) {
+          grossKrForDb = parsed.totalKr.toFixed(2).replace('.', ',')
+        }
+      } catch {
+        setOcrWarning(
+          'Kunne ikke læse bilaget automatisk. Tjek felterne eller prøv «Scan bilag» på mobil.',
+        )
+      }
+    }
+
+    setOcrProgress(null)
+
+    const grossCents = Math.round(
+      (parseFloat(grossKrForDb.replace(',', '.')) || 0) * 100,
+    )
     const rate = parseFloat(vatRate.replace(',', '.')) || 0
     const netCents = rate > 0 ? Math.round(grossCents / (1 + rate / 100)) : grossCents
     const vatCents = grossCents - netCents
@@ -74,10 +115,11 @@ export function VouchersPage() {
       storage_path: path,
       filename: file.name,
       mime_type: file.type || null,
-      title: title || file.name,
+      title: titleForDb,
       category: category || null,
+      notes: notesForDb,
       uploaded_by: user.id,
-      expense_date: expenseDate,
+      expense_date: expenseDateForDb,
       gross_cents: grossCents,
       net_cents: netCents,
       vat_cents: vatCents,
@@ -199,7 +241,11 @@ export function VouchersPage() {
           </div>
           <div className="flex items-end">
             <label className="flex w-full cursor-pointer items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100">
-              {uploading ? 'Uploader…' : 'Vælg fil og upload'}
+              {uploading
+                ? ocrProgress != null
+                  ? `Læser bilag… ${ocrProgress}%`
+                  : 'Uploader…'
+                : 'Vælg fil og upload'}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -210,6 +256,9 @@ export function VouchersPage() {
             </label>
           </div>
         </div>
+        {ocrWarning ? (
+          <p className="mt-3 text-sm text-amber-800">{ocrWarning}</p>
+        ) : null}
         {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
       </div>
 
