@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Area,
   AreaChart,
@@ -12,7 +12,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { useApp, subscriptionOk } from '@/context/AppProvider'
 import { formatDate, formatDkk, formatDateTime } from '@/lib/format'
-import { startStripeCheckout } from '@/lib/edge'
+import { redirectToStripeCheckout } from '@/lib/edge'
 import type { Database } from '@/types/database'
 
 type Invoice = Database['public']['Tables']['invoices']['Row']
@@ -32,12 +32,19 @@ function last30Days() {
 }
 
 export function DashboardPage() {
-  const { currentCompany, subscription } = useApp()
+  const { currentCompany, subscription, refresh } = useApp()
+  const [searchParams] = useSearchParams()
   const ok = subscriptionOk(subscription)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [activity, setActivity] = useState<Activity[]>([])
   const [voucherCount, setVoucherCount] = useState(0)
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      void refresh()
+    }
+  }, [searchParams, refresh])
 
   useEffect(() => {
     if (!currentCompany) {
@@ -152,11 +159,7 @@ export function DashboardPage() {
           <button
             type="button"
             className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-            onClick={() =>
-              void startStripeCheckout(currentCompany.id).then((url) => {
-                window.location.href = url
-              })
-            }
+            onClick={() => redirectToStripeCheckout(currentCompany.id)}
           >
             Start abonnement
           </button>

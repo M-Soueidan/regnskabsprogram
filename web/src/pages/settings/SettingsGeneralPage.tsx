@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { useApp, subscriptionOk } from '@/context/AppProvider'
 import { formatDateTime } from '@/lib/format'
 import { subscriptionStatusLabelDa } from '@/lib/subscriptionLabels'
-import { startStripeCheckout } from '@/lib/edge'
+import { redirectToStripeCheckout } from '@/lib/edge'
 import {
   cvrValidationHint,
   isPostgresUniqueViolation,
@@ -182,11 +182,7 @@ export function SettingsGeneralPage() {
           <button
             type="button"
             className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-            onClick={() =>
-              void startStripeCheckout(currentCompany.id).then((url) => {
-                window.location.href = url
-              })
-            }
+            onClick={() => redirectToStripeCheckout(currentCompany.id)}
           >
             Aktivér abonnement
           </button>

@@ -128,7 +128,9 @@ export function OnboardingPage() {
     setBusy(true)
     setError(null)
     try {
-      const url = await startStripeCheckout(currentCompany.id)
+      const url = await startStripeCheckout(currentCompany.id, {
+        returnPath: 'onboarding',
+      })
       window.location.href = url
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Checkout fejlede')

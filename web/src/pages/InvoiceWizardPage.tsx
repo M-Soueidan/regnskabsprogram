@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { Link, useMatch, useNavigate, useParams } from 'react-router-dom'
@@ -9,17 +9,19 @@ import { functionsHttpErrorMessage, invokePlatformEmail } from '@/lib/edge'
 import { formatDkk } from '@/lib/format'
 import { fetchCompanyLogoDataUrl } from '@/lib/invoiceBranding'
 import { generateInvoicePdfBlob } from '@/lib/invoicePdf'
+import {
+  clearInvoiceWizardDraft,
+  readInvoiceWizardDraft,
+  writeInvoiceWizardDraft,
+  type InvoiceWizardTab,
+  type InvoiceWizardView,
+  type WizardLine,
+} from '@/lib/invoiceWizardDraft'
 import { lineAmounts, totalsFromLines, type DraftLine } from '@/lib/invoiceMath'
 import type { Database } from '@/types/database'
 
 type Invoice = Database['public']['Tables']['invoices']['Row']
 type LineRow = Database['public']['Tables']['invoice_line_items']['Row']
-
-type WizardLine = DraftLine & {
-  discount_pct: number
-  comment: string
-  account: string
-}
 
 const DEFAULT_ACCOUNT = '1000 - Salg af varer/ydelser m/moms'
 
@@ -33,11 +35,18 @@ const emptyLine = (): WizardLine => ({
   account: DEFAULT_ACCOUNT,
 })
 
-type Tab = 'kunde' | 'produkter' | 'overblik'
-type View =
-  | { kind: 'wizard' }
-  | { kind: 'lineEditor'; index: number }
-  | { kind: 'settings' }
+type Tab = InvoiceWizardTab
+type View = InvoiceWizardView
+
+function defaultIssueDateIso() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function defaultDueDateIso() {
+  const d = new Date()
+  d.setDate(d.getDate() + 14)
+  return d.toISOString().slice(0, 10)
+}
 
 type CvrCompany = { vat: number; name: string; email: string | null }
 
@@ -221,6 +230,89 @@ export function InvoiceWizardPage() {
 
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  const canPersistInvoiceDraft = useRef(false)
+  const skipNextInvoiceDraftPersist = useRef(true)
+  const latestInvoiceDraftRef = useRef({
+    tab: 'kunde' as Tab,
+    view: { kind: 'wizard' } as View,
+    customerName: '',
+    customerEmail: '',
+    customerQuery: '',
+    issueDate: defaultIssueDateIso(),
+    dueDate: defaultDueDateIso(),
+    title: 'Faktura',
+    notes: '',
+    priceMode: 'excl' as 'excl' | 'incl',
+    status: 'draft' as Invoice['status'],
+    lines: [] as WizardLine[],
+  })
+
+  useLayoutEffect(() => {
+    if (!isNew || !currentCompany?.id) {
+      canPersistInvoiceDraft.current = false
+      return
+    }
+    canPersistInvoiceDraft.current = false
+    skipNextInvoiceDraftPersist.current = true
+    const draft = readInvoiceWizardDraft(currentCompany.id)
+    if (draft) {
+      setTab(draft.tab)
+      setView(draft.view)
+      setCustomerName(draft.customerName)
+      setCustomerEmail(draft.customerEmail)
+      setCustomerQuery(draft.customerQuery)
+      setIssueDate(draft.issueDate || defaultIssueDateIso())
+      setDueDate(draft.dueDate || defaultDueDateIso())
+      setTitle(draft.title)
+      setNotes(draft.notes)
+      setPriceMode(draft.priceMode)
+      setStatus(draft.status)
+      setLines(draft.lines.length > 0 ? draft.lines : [])
+    } else {
+      setTab('kunde')
+      setView({ kind: 'wizard' })
+      setCustomerName('')
+      setCustomerEmail('')
+      setCustomerQuery('')
+      setIssueDate(defaultIssueDateIso())
+      setDueDate(defaultDueDateIso())
+      setTitle('Faktura')
+      setNotes('')
+      setPriceMode('excl')
+      setStatus('draft')
+      setLines([])
+    }
+    canPersistInvoiceDraft.current = true
+  }, [isNew, currentCompany?.id])
+
+  useEffect(() => {
+    if (!isNew || !currentCompany?.id || !canPersistInvoiceDraft.current) return
+    if (skipNextInvoiceDraftPersist.current) {
+      skipNextInvoiceDraftPersist.current = false
+      return
+    }
+    const cid = currentCompany.id
+    const t = window.setTimeout(() => {
+      writeInvoiceWizardDraft(cid, latestInvoiceDraftRef.current)
+    }, 0)
+    return () => window.clearTimeout(t)
+  }, [
+    isNew,
+    currentCompany?.id,
+    tab,
+    view,
+    customerName,
+    customerEmail,
+    customerQuery,
+    issueDate,
+    dueDate,
+    title,
+    notes,
+    priceMode,
+    status,
+    lines,
+  ])
 
   useEffect(() => {
     if (!currentCompany) return
@@ -422,6 +514,7 @@ export function InvoiceWizardPage() {
             invoiceId: inv.id,
           }).catch(() => {})
         }
+        clearInvoiceWizardDraft(currentCompany.id)
         navigate(`/app/invoices/${inv.id}`, { replace: true })
       } else {
         const { error: uErr } = await supabase
@@ -481,6 +574,23 @@ export function InvoiceWizardPage() {
       setError(e instanceof Error ? e.message : 'Fejl')
     } finally {
       setSaving(false)
+    }
+  }
+
+  if (isNew && currentCompany) {
+    latestInvoiceDraftRef.current = {
+      tab,
+      view,
+      customerName,
+      customerEmail,
+      customerQuery,
+      issueDate,
+      dueDate,
+      title,
+      notes,
+      priceMode,
+      status,
+      lines,
     }
   }
 

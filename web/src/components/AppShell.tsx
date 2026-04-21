@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { useApp, subscriptionOk } from '@/context/AppProvider'
-import { startStripeCheckout } from '@/lib/edge'
+import { redirectToStripeCheckout } from '@/lib/edge'
 import { logoutToLanding } from '@/lib/logoutToLanding'
 import { supabase } from '@/lib/supabase'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
@@ -189,11 +189,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
               <button
                 type="button"
                 className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                onClick={() =>
-                  void startStripeCheckout(currentCompany.id).then((url) => {
-                    window.location.href = url
-                  })
-                }
+                onClick={() => redirectToStripeCheckout(currentCompany.id)}
               >
                 Abonnér
               </button>
@@ -268,11 +264,7 @@ function TrialBanner({
       <button
         type="button"
         className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
-        onClick={() =>
-          void startStripeCheckout(companyId).then((url) => {
-            window.location.href = url
-          })
-        }
+        onClick={() => redirectToStripeCheckout(companyId)}
       >
         Tilføj betaling
       </button>

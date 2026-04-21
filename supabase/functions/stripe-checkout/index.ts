@@ -36,7 +36,7 @@ serve(async (req) => {
     return jsonResponse({ error: 'Unauthorized' }, 401)
   }
 
-  let body: { company_id?: string }
+  let body: { company_id?: string; return_path?: 'dashboard' | 'onboarding' }
   try {
     body = await req.json()
   } catch {
@@ -46,6 +46,7 @@ serve(async (req) => {
   if (!companyId) {
     return jsonResponse({ error: 'company_id required' }, 400)
   }
+  const returnPath = body.return_path === 'onboarding' ? 'onboarding' : 'dashboard'
 
   const { data: member, error: memErr } = await userClient
     .from('company_members')
@@ -91,12 +92,17 @@ serve(async (req) => {
     )
   }
 
+  const afterStripeBase =
+    returnPath === 'onboarding'
+      ? `${appUrl}/onboarding`
+      : `${appUrl}/app/dashboard`
+
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${appUrl}/onboarding?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/onboarding?checkout=cancel`,
+    success_url: `${afterStripeBase}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${afterStripeBase}?checkout=cancel`,
     client_reference_id: companyId,
     subscription_data: {
       metadata: { company_id: companyId },

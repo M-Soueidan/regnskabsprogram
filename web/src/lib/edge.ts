@@ -6,7 +6,12 @@ const fnUrl = (name: string) => {
   return `${base}/functions/v1/${name}`
 }
 
-export async function startStripeCheckout(companyId: string) {
+export type StripeCheckoutReturnPath = 'dashboard' | 'onboarding'
+
+export async function startStripeCheckout(
+  companyId: string,
+  options?: { returnPath?: StripeCheckoutReturnPath },
+) {
   const { data: sessionData } = await supabase.auth.getSession()
   const token = sessionData.session?.access_token
   if (!token) throw new Error('Ikke logget ind')
@@ -19,12 +24,44 @@ export async function startStripeCheckout(companyId: string) {
       apikey: anon,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ company_id: companyId }),
+    body: JSON.stringify({
+      company_id: companyId,
+      return_path: options?.returnPath ?? 'dashboard',
+    }),
   })
   const json = (await res.json()) as { url?: string; error?: string }
   if (!res.ok) throw new Error(json.error ?? 'Checkout fejlede')
   if (!json.url) throw new Error('Manglede Stripe URL')
   return json.url
+}
+
+/** Starter Stripe Checkout og navigerer væk; viser en kort fejl hvis kaldet fejler (fx manglende deploy/secrets). */
+export function redirectToStripeCheckout(
+  companyId: string,
+  options?: { returnPath?: StripeCheckoutReturnPath },
+): void {
+  void startStripeCheckout(companyId, options)
+    .then((url) => {
+      window.location.href = url
+    })
+    .catch((e) => {
+      const raw = e instanceof Error ? e.message : String(e)
+      const lower = raw.toLowerCase()
+      let msg = raw
+      if (
+        lower.includes('failed to fetch') ||
+        lower.includes('networkerror') ||
+        lower.includes('load failed')
+      ) {
+        msg =
+          'Kunne ikke starte betaling (netværk). Tjek forbindelsen og at Edge Function «stripe-checkout» er deployet.'
+      } else if (lower.includes('forbidden')) {
+        msg = 'Du har ikke adgang til at betale for denne virksomhed.'
+      } else if (lower.includes('unauthorized')) {
+        msg = 'Log ind igen og prøv at tilføje betaling.'
+      }
+      window.alert(msg)
+    })
 }
 
 export async function startAiiaOAuth(companyId: string) {
