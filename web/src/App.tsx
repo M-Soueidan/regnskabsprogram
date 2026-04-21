@@ -38,6 +38,7 @@ import { PlatformSmtpSettingsPage } from '@/pages/platform/PlatformSmtpSettingsP
 import { PlatformEmailTemplateSectionPage } from '@/pages/platform/PlatformEmailTemplateSectionPage'
 import { PlatformStaffPage } from '@/pages/platform/PlatformStaffPage'
 import { PlatformSeoPage } from '@/pages/platform/PlatformSeoPage'
+import { CookieConsentBanner } from '@/components/CookieConsentBanner'
 
 function MissingConfigPage() {
   return (
@@ -69,11 +70,17 @@ function MissingConfigPage() {
 
 export default function App() {
   if (!isSupabaseConfigured) {
-    return <MissingConfigPage />
+    return (
+      <>
+        <MissingConfigPage />
+        <CookieConsentBanner />
+      </>
+    )
   }
   return (
     <BrowserRouter>
       <AppProvider>
+        <CookieConsentBanner />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/support-tider" element={<SupportHoursPage />} />
