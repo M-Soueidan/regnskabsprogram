@@ -63,8 +63,12 @@ export function mergeLandingSeo(raw: unknown): LandingSeoSettings {
 const MARK = 'data-bilago-landing-seo'
 
 function setMeta(attr: 'name' | 'property', key: string, content: string) {
-  const sel = `meta[${attr}="${key}"][${MARK}]`
-  let el = document.head.querySelector(sel) as HTMLMetaElement | null
+  const marked = `meta[${attr}="${key}"][${MARK}]`
+  const plain = `meta[${attr}="${key}"]`
+  let el = document.head.querySelector(marked) as HTMLMetaElement | null
+  if (!el) {
+    el = document.head.querySelector(plain) as HTMLMetaElement | null
+  }
   if (!el) {
     el = document.createElement('meta')
     el.setAttribute(attr, key)
@@ -75,8 +79,12 @@ function setMeta(attr: 'name' | 'property', key: string, content: string) {
 }
 
 function setLinkCanonical(href: string) {
-  const sel = `link[rel="canonical"][${MARK}]`
-  let el = document.head.querySelector(sel) as HTMLLinkElement | null
+  const marked = `link[rel="canonical"][${MARK}]`
+  const plain = 'link[rel="canonical"]'
+  let el = document.head.querySelector(marked) as HTMLLinkElement | null
+  if (!el) {
+    el = document.head.querySelector(plain) as HTMLLinkElement | null
+  }
   if (!el) {
     el = document.createElement('link')
     el.setAttribute('rel', 'canonical')

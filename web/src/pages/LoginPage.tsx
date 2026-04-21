@@ -6,7 +6,7 @@ import { BrandMark } from '@/components/BrandMark'
 import { useApp } from '@/context/AppProvider'
 
 export function LoginPage() {
-  const { session, loading } = useApp()
+  const { session, loading, refresh } = useApp()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -16,7 +16,7 @@ export function LoginPage() {
   const [forgotDone, setForgotDone] = useState(false)
 
   if (!loading && session) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/home" replace />
   }
 
   async function submit(e: React.FormEvent) {
@@ -27,12 +27,14 @@ export function LoginPage() {
       email,
       password,
     })
-    setBusy(false)
     if (err) {
+      setBusy(false)
       setError(err.message)
       return
     }
-    navigate('/')
+    await refresh()
+    setBusy(false)
+    navigate('/home', { replace: true })
   }
 
   async function submitForgot(e: React.FormEvent) {

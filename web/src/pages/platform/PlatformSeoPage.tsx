@@ -193,7 +193,16 @@ export function PlatformSeoPage() {
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Open Graph &amp; sociale medier</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Bruges når siden deles på LinkedIn, Facebook m.m. Billede bør helst være ca. 1200×630 px.
+            Bruges når siden deles på LinkedIn, Facebook, WhatsApp m.m. Billede bør helst være ca. 1200×630 px.
+          </p>
+          <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            <strong className="text-slate-800">Vigtigt:</strong> WhatsApp og mange andre henter kun den statiske{' '}
+            <code className="text-[11px]">index.html</code> uden JavaScript — derfor ligger der nu standard OG-tags i
+            repoets <code className="text-[11px]">index.html</code>. Besøgende på forsiden får stadig jeres gemte tekster
+            fra databasen i browseren. Efter ændring her kan et opdateret forhåndsvisning hos
+            WhatsApp kræve nyt link eller tid (cache). Tjek at <code className="text-[11px]">og-image.png</code> findes på
+            serveren under den URL I angiver. Opdater også <code className="text-[11px]">web/index.html</code> ved større
+            lanceringstekster, så crawlers ser samme budskab.
           </p>
           <div className="mt-4 space-y-4">
             <Field

@@ -1,9 +1,12 @@
 import { Link, useLocation } from 'react-router-dom'
 import { BrandMark } from '@/components/BrandMark'
 
+function navClass(active: boolean) {
+  return active ? 'font-medium text-slate-900' : 'text-slate-600 hover:text-slate-900'
+}
+
 export function MarketingHeader() {
   const { pathname } = useLocation()
-  const onSupport = pathname === '/support-tider'
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur">
@@ -12,19 +15,19 @@ export function MarketingHeader() {
           <BrandMark size="sm" />
           <span className="text-lg font-semibold">Bilago</span>
         </Link>
-        <nav className="hidden items-center gap-8 text-sm text-slate-600 md:flex">
-          <Link to="/#features" className="hover:text-slate-900">
+        <nav className="hidden items-center gap-8 text-sm md:flex">
+          <Link to="/funktioner" className={navClass(pathname === '/funktioner')}>
             Funktioner
           </Link>
-          <Link to="/#pricing" className="hover:text-slate-900">
+          <Link to="/priser" className={navClass(pathname === '/priser')}>
             Priser
           </Link>
-          <Link to="/#faq" className="hover:text-slate-900">
+          <Link to="/faq" className={navClass(pathname === '/faq')}>
             FAQ
           </Link>
           <Link
             to="/support-tider"
-            className={onSupport ? 'font-medium text-slate-900' : 'hover:text-slate-900'}
+            className={navClass(pathname === '/support-tider')}
           >
             Support
           </Link>

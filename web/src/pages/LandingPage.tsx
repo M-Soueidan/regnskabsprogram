@@ -1,237 +1,19 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useApp } from '@/context/AppProvider'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
-import { formatDkk, formatKrPerMonth } from '@/lib/format'
-import { resolvePricingCornerBadge } from '@/lib/pricingCornerBadge'
-import { applyLandingSeoToDocument, mergeLandingSeo } from '@/lib/landingSeo'
-import { PRICING_DEFAULTS } from '@/lib/pricingPublicDefaults'
-import type { Database } from '@/types/database'
 import { MarketingFooter } from '@/components/MarketingFooter'
 import { MarketingHeader } from '@/components/MarketingHeader'
-
-function PricingPitchParagraph({
-  template,
-  beløb,
-}: {
-  template: string | null | undefined
-  beløb: string
-}) {
-  const raw = template?.trim() || PRICING_DEFAULTS.pitch
-  const parts = raw.split('{beløb}')
-  return (
-    <p className="mt-3 text-xs text-slate-600">
-      {parts.map((part, i) => (
-        <Fragment key={i}>
-          {part}
-          {i < parts.length - 1 ? (
-            <strong className="text-slate-900">{beløb}</strong>
-          ) : null}
-        </Fragment>
-      ))}
-    </p>
-  )
-}
-
-type IconProps = { className?: string }
-
-function InvoiceIcon({ className }: IconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" />
-      <path d="M14 2v6h6" />
-      <path d="M8 13h8M8 17h6" />
-    </svg>
-  )
-}
-
-function ReceiptIcon({ className }: IconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 3v18l2-1 2 1 2-1 2 1 2-1 2 1 2-1V3z" />
-      <path d="M9 8h6M9 12h6M9 16h4" />
-    </svg>
-  )
-}
-
-function BankIcon({ className }: IconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 10 12 4l9 6" />
-      <path d="M5 10v8M9 10v8M15 10v8M19 10v8" />
-      <path d="M3 20h18" />
-    </svg>
-  )
-}
-
-function SearchIcon({ className }: IconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="7" />
-      <path d="m21 21-4.3-4.3" />
-    </svg>
-  )
-}
-
-function CheckIcon({ className }: IconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m5 12 5 5 9-11" />
-    </svg>
-  )
-}
-
-const features = [
-  {
-    icon: InvoiceIcon,
-    title: 'Fakturering',
-    desc: 'Opret og send professionelle fakturaer med moms, EAN og fortløbende numre på få sekunder.',
-  },
-  {
-    icon: ReceiptIcon,
-    title: 'Bilag',
-    desc: 'Upload kvitteringer og bilag, og hold styr på dine udgifter pr. konto uden bøvl.',
-  },
-  {
-    icon: BankIcon,
-    title: 'Bank-afstemning',
-    desc: 'Importér kontoudtog og match automatisk mod fakturaer og bilag — uden fejl.',
-  },
-  {
-    icon: SearchIcon,
-    title: 'CVR-opslag',
-    desc: 'Slå kunder op via CVR-nummer og få navn, adresse og data automatisk udfyldt.',
-  },
-]
-
-const perks = [
-  '30 dage gratis — ingen kort påkrævet',
-  'Bygget til danske regler og moms',
-  'Opfylder bogføringsloven',
-  'Ingen binding — sig op når du vil',
-]
-
-const testimonials = [
-  {
-    quote:
-      'Bilago har gjort vores månedsafslutning meget hurtigere. Bank-afstemningen alene sparer mig timer.',
-    name: 'Mette H.',
-    role: 'Indehaver, ApS',
-  },
-  {
-    quote:
-      'Endelig et regnskabsprogram der føles enkelt. CVR-opslaget er en lille ting der betyder meget.',
-    name: 'Anders K.',
-    role: 'Konsulent',
-  },
-  {
-    quote:
-      'Fakturering tager nu minutter i stedet for timer. Vi har ikke misset en faktura siden vi skiftede.',
-    name: 'Sara L.',
-    role: 'Freelancer',
-  },
-]
-
-const faqs = [
-  {
-    q: 'Er Bilago i overensstemmelse med bogføringsloven?',
-    a: 'Ja. Bilago gemmer bilag digitalt og opfylder kravene til opbevaring og dokumentation i den nye bogføringslov.',
-  },
-  {
-    q: 'Kan jeg skifte fra et andet regnskabsprogram?',
-    a: 'Ja. Du kan komme i gang med det samme ved at oprette en konto og indtaste dine virksomhedsoplysninger via CVR-opslag.',
-  },
-  {
-    q: 'Er der binding?',
-    a: 'Nej. Du betaler månedligt og kan opsige dit abonnement når som helst.',
-  },
-  {
-    q: 'Hvad koster Bilago?',
-    a: 'Bilago koster normalt 249 kr./md. Vi kører et introtilbud på 99 kr./md, og den pris er låst så længe dit abonnement løber — også efter tilbuddet slutter.',
-  },
-  {
-    q: 'Er der en gratis prøveperiode?',
-    a: 'Ja. De første 30 dage er gratis, og du behøver ikke at tilføje betalingsoplysninger før du vil fortsætte.',
-  },
-]
+import { MarketingPricingSection } from '@/components/MarketingPricingSection'
+import { applyLandingSeoToDocument, mergeLandingSeo } from '@/lib/landingSeo'
+import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { marketingFeatureCards } from '@/marketing/featureCards'
+import { CheckIcon } from '@/marketing/MarketingIcons'
+import { marketingFaqs, marketingPerks, marketingTestimonials } from '@/marketing/marketingData'
+import type { Database } from '@/types/database'
 
 type PublicSettings = Database['public']['Tables']['platform_public_settings']['Row']
 
-function PricingSection({ pub }: { pub: PublicSettings | null }) {
-  const amountCents =
-    pub?.pricing_amount_cents ?? pub?.monthly_price_cents ?? 9900
-  const compareCents = pub?.pricing_compare_cents
-  const title = pub?.pricing_title?.trim() || PRICING_DEFAULTS.title
-  const subtitle = pub?.pricing_subtitle?.trim() || PRICING_DEFAULTS.subtitle
-  const badge = pub?.pricing_badge?.trim() || PRICING_DEFAULTS.badge
-  const planName = pub?.pricing_plan_name?.trim() || PRICING_DEFAULTS.planName
-  const beløb = formatKrPerMonth(amountCents)
-  const featureLines = (pub?.pricing_features?.trim() || PRICING_DEFAULTS.features)
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-  const cta = pub?.pricing_cta_label?.trim() || PRICING_DEFAULTS.cta
-  const krWhole = Math.round(amountCents / 100)
-  const cornerLabel = resolvePricingCornerBadge({
-    customCorner: pub?.pricing_corner_badge,
-    compareCents,
-    amountCents,
-  })
-
-  return (
-    <div className="mx-auto max-w-3xl px-6 py-24 text-center">
-      <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h2>
-      <p className="mt-4 text-lg text-slate-600">{subtitle}</p>
-      <div className="relative mx-auto mt-10 max-w-md rounded-2xl border-2 border-indigo-200 bg-white p-8 pt-10 shadow-lg shadow-indigo-100/60">
-        {cornerLabel ? (
-          <span className="absolute right-4 top-4 max-w-[min(11rem,calc(100%-2rem))] text-right text-[11px] font-semibold leading-tight text-emerald-800 sm:text-xs">
-            <span className="inline-block rounded-full bg-emerald-50 px-2.5 py-1 ring-1 ring-emerald-200">
-              {cornerLabel}
-            </span>
-          </span>
-        ) : null}
-        <div className="flex items-center justify-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">
-            {badge}
-          </span>
-        </div>
-        <div className="mt-5 text-sm font-semibold uppercase tracking-wide text-indigo-600">
-          {planName}
-        </div>
-        {compareCents != null && compareCents > 0 ? (
-          <div className="mt-2 text-sm text-slate-400">
-            <span className="line-through">{formatKrPerMonth(compareCents)}</span>
-          </div>
-        ) : null}
-        <div className="mt-1 flex items-baseline justify-center gap-1">
-          <span className="text-5xl font-semibold text-slate-900">{krWhole}</span>
-          <span className="text-base text-slate-500">kr./md</span>
-        </div>
-        {pub?.monthly_price_cents != null && pub.monthly_price_cents > 0 ? (
-          <p className="mt-2 text-xs text-slate-500">
-            Listepris i systemet: {formatDkk(pub.monthly_price_cents)} / md (kan styres under
-            platform).
-          </p>
-        ) : null}
-        <PricingPitchParagraph template={pub?.pricing_pitch} beløb={beløb} />
-        <ul className="mt-6 space-y-3 text-left text-sm text-slate-700">
-          {featureLines.map((l, i) => (
-            <li key={`${i}-${l.slice(0, 24)}`} className="flex items-start gap-2">
-              <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-              {l}
-            </li>
-          ))}
-        </ul>
-        <Link
-          to="/signup"
-          className="mt-8 block rounded-lg bg-indigo-600 py-3 text-sm font-semibold text-white hover:bg-indigo-700"
-        >
-          {cta}
-        </Link>
-      </div>
-    </div>
-  )
-}
+const landingFeatureCards = marketingFeatureCards.slice(0, 4)
 
 export function LandingPage() {
   const { session, loading } = useApp()
@@ -297,7 +79,7 @@ export function LandingPage() {
               </Link>
             </div>
             <ul className="mt-8 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-              {perks.map((p) => (
+              {marketingPerks.map((p) => (
                 <li key={p} className="flex items-center gap-2">
                   <CheckIcon className="h-4 w-4 text-emerald-600" />
                   {p}
@@ -387,9 +169,15 @@ export function LandingPage() {
           <p className="mt-4 text-lg text-slate-600">
             Fire kernefunktioner der dækker hverdagen for danske SMB'er og freelancere.
           </p>
+          <Link
+            to="/funktioner"
+            className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            Se alle funktioner →
+          </Link>
         </div>
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {features.map((f) => (
+          {landingFeatureCards.map((f) => (
             <div
               key={f.title}
               className="group rounded-2xl border border-slate-200 bg-white p-6 transition hover:border-indigo-200 hover:shadow-md"
@@ -532,12 +320,12 @@ export function LandingPage() {
           </p>
         </div>
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {testimonials.map((t) => (
+          {marketingTestimonials.map((t) => (
             <figure
               key={t.name}
               className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
             >
-              <blockquote className="text-sm text-slate-700">"{t.quote}"</blockquote>
+              <blockquote className="text-sm text-slate-700">&ldquo;{t.quote}&rdquo;</blockquote>
               <figcaption className="mt-5 flex items-center gap-3">
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
                   {t.name.charAt(0)}
@@ -553,7 +341,12 @@ export function LandingPage() {
       </section>
 
       <section id="pricing" className="bg-slate-50">
-        <PricingSection pub={pub} />
+        <MarketingPricingSection pub={pub} />
+        <div className="mx-auto max-w-3xl px-6 pb-16 text-center">
+          <Link to="/priser" className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+            Læs mere om priser og hvad der er inkluderet →
+          </Link>
+        </div>
       </section>
 
       <section id="faq" className="mx-auto max-w-3xl px-6 py-24">
@@ -561,9 +354,15 @@ export function LandingPage() {
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             Ofte stillede spørgsmål
           </h2>
+          <Link
+            to="/faq"
+            className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            Se hele FAQ →
+          </Link>
         </div>
         <div className="mt-10 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-          {faqs.map((f) => (
+          {marketingFaqs.map((f) => (
             <details key={f.q} className="group p-5 [&_summary::-webkit-details-marker]:hidden">
               <summary className="flex cursor-pointer items-center justify-between text-sm font-semibold text-slate-900">
                 {f.q}

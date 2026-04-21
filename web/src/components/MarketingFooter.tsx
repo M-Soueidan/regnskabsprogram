@@ -19,17 +19,17 @@ export function MarketingFooter({ pub }: { pub: PublicSettings | null }) {
           <div className="text-sm font-semibold text-slate-900">Produkt</div>
           <ul className="mt-3 space-y-2 text-sm text-slate-600">
             <li>
-              <Link to="/#features" className="hover:text-slate-900">
+              <Link to="/funktioner" className="hover:text-slate-900">
                 Funktioner
               </Link>
             </li>
             <li>
-              <Link to="/#pricing" className="hover:text-slate-900">
+              <Link to="/priser" className="hover:text-slate-900">
                 Priser
               </Link>
             </li>
             <li>
-              <Link to="/#faq" className="hover:text-slate-900">
+              <Link to="/faq" className="hover:text-slate-900">
                 FAQ
               </Link>
             </li>

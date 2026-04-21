@@ -8,6 +8,9 @@ import { RequireSubscription } from '@/components/RequireSubscription'
 import { HomeRedirect } from '@/components/HomeRedirect'
 import { LandingPage } from '@/pages/LandingPage'
 import { SupportHoursPage } from '@/pages/SupportHoursPage'
+import { FeaturesPage } from '@/pages/FeaturesPage'
+import { PricingPage } from '@/pages/PricingPage'
+import { FaqPage } from '@/pages/FaqPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SignupPage } from '@/pages/SignupPage'
 import { OnboardingPage } from '@/pages/OnboardingPage'
@@ -83,6 +86,9 @@ export default function App() {
         <CookieConsentBanner />
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/funktioner" element={<FeaturesPage />} />
+          <Route path="/priser" element={<PricingPage />} />
+          <Route path="/faq" element={<FaqPage />} />
           <Route path="/support-tider" element={<SupportHoursPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />

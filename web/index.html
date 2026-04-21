@@ -12,7 +12,36 @@
     <meta name="apple-mobile-web-app-title" content="Bilago" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="apple-touch-icon" href="/pwa-180.png" sizes="180x180" />
-    <title>Bilago</title>
+    <!-- SEO/OG: crawlers (WhatsApp, Facebook, LinkedIn) læser KUN denne fil — ikke JS.
+         Hold tekster synkron med src/lib/landingSeo.ts DEFAULT_LANDING_SEO ved større ændringer.
+         Besøgende på forsiden får stadig dynamisk SEO fra platform efter indlæsning. -->
+    <title>Bilago — dansk regnskab for SMB</title>
+    <meta
+      name="description"
+      content="Bilago samler fakturering, bilag og bank-afstemning for danske virksomheder — med CVR-opslag, moms og bogføringslov."
+    />
+    <meta
+      name="keywords"
+      content="regnskab, faktura, bilag, bogføring, Danmark, SMB, moms, CVR, bogføringslov"
+    />
+    <meta property="og:title" content="Bilago — regnskab uden bøvl" />
+    <meta
+      property="og:description"
+      content="Fakturering, bilag og bank ét sted. Bygget til danske virksomheder."
+    />
+    <meta property="og:image" content="https://bilago.dk/og-image.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bilago" />
+    <meta property="og:url" content="https://bilago.dk/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Bilago — regnskab uden bøvl" />
+    <meta
+      name="twitter:description"
+      content="Fakturering, bilag og bank ét sted. Bygget til danske virksomheder."
+    />
+    <meta name="twitter:image" content="https://bilago.dk/og-image.png" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://bilago.dk/" />
   </head>
   <body>
     <div id="root"></div>
