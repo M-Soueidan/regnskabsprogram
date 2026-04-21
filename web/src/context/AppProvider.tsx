@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
@@ -54,6 +55,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [tenantCompanyCount, setTenantCompanyCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
+  /**
+   * Kun første indlæsning (eller efter logout) må sætte `loading` og fylde skærmen med «Indlæser…».
+   * Ellers ville hvert `load()`-kald — fx fra `onAuthStateChange` — blokere hele appen ved navigation.
+   */
+  const shouldBlockUiForAuthLoad = useRef(true)
+
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) {
       setSession(null)
@@ -65,10 +72,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPlatformRole(null)
       setImpersonation(null)
       setTenantCompanyCount(0)
+      shouldBlockUiForAuthLoad.current = true
       setLoading(false)
       return
     }
-    setLoading(true)
+    if (shouldBlockUiForAuthLoad.current) {
+      setLoading(true)
+    }
     const { data: sessionData } = await supabase.auth.getSession()
     const s = sessionData.session
     setSession(s)
@@ -81,6 +91,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPlatformRole(null)
       setImpersonation(null)
       setTenantCompanyCount(0)
+      shouldBlockUiForAuthLoad.current = true
       setLoading(false)
       return
     }
@@ -179,6 +190,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     setLoading(false)
+    shouldBlockUiForAuthLoad.current = false
   }, [])
 
   useEffect(() => {

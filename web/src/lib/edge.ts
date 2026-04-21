@@ -65,7 +65,9 @@ function smtpTestHelpMessage(cause: string): string {
 }
 
 /** Supabase viser kun «non-2xx»; den rigtige tekst ligger i response-body (fx SMTP-fejl). */
-async function messageFromFunctionsHttpError(err: FunctionsHttpError): Promise<string> {
+export async function functionsHttpErrorMessage(
+  err: FunctionsHttpError,
+): Promise<string> {
   const res = err.context as Response | undefined
   if (!res?.json) {
     return err.message
@@ -110,7 +112,7 @@ export async function invokeSmtpTest(
 
   if (fnError) {
     if (fnError instanceof FunctionsHttpError) {
-      const detail = await messageFromFunctionsHttpError(fnError)
+      const detail = await functionsHttpErrorMessage(fnError)
       throw new Error(smtpTestHelpMessage(detail))
     }
     const msg =

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { Link, useMatch, useNavigate, useParams } from 'react-router-dom'
 import { useApp } from '@/context/AppProvider'
 import { logActivity } from '@/lib/activity'
 import { blobToBase64 } from '@/lib/blobToBase64'
-import { invokePlatformEmail } from '@/lib/edge'
+import { functionsHttpErrorMessage, invokePlatformEmail } from '@/lib/edge'
 import { formatDkk } from '@/lib/format'
 import { fetchCompanyLogoDataUrl } from '@/lib/invoiceBranding'
 import { generateInvoicePdfBlob } from '@/lib/invoicePdf'
@@ -39,6 +40,29 @@ type View =
   | { kind: 'settings' }
 
 type CvrCompany = { vat: number; name: string; email: string | null }
+
+function noticeForCvrInvokeFailure(error: unknown, data: unknown): string {
+  const fromBody = data as { error?: string } | null
+  if (fromBody?.error && typeof fromBody.error === 'string') {
+    return fromBody.error
+  }
+  if (error instanceof Error) {
+    const m = error.message
+    const lower = m.toLowerCase()
+    if (
+      lower.includes('failed to fetch') ||
+      lower.includes('networkerror') ||
+      lower.includes('load failed')
+    ) {
+      return (
+        'Kunne ikke nå CVR-søgning. Tjek netværk — eller at Edge Function «cvr-search» er deployet ' +
+        '(supabase functions deploy cvr-search).'
+      )
+    }
+    return m
+  }
+  return 'Kunne ikke søge i CVR.'
+}
 
 async function sendInvoiceSentEmailWithOptionalPdf(opts: {
   companyId: string
@@ -105,7 +129,26 @@ function useCvrSearch(query: string, active: boolean) {
       setLoading(false)
       if (error) {
         setResults([])
-        setNotice('Kunne ikke søge i CVR.')
+        let msg: string
+        if (error instanceof FunctionsHttpError) {
+          try {
+            msg = await functionsHttpErrorMessage(error)
+            if (!msg.trim()) msg = noticeForCvrInvokeFailure(error, data)
+          } catch {
+            msg = noticeForCvrInvokeFailure(error, data)
+          }
+        } else {
+          msg = noticeForCvrInvokeFailure(error, data)
+        }
+        const low = msg.toLowerCase()
+        if (
+          low.includes('unauthorized') ||
+          msg === 'Unauthorized' ||
+          msg === 'JWT expired'
+        ) {
+          msg = 'Log ind igen for at søge i CVR.'
+        }
+        setNotice(msg)
         return
       }
       const payload = data as {

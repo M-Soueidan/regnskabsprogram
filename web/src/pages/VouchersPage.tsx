@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
@@ -12,6 +12,18 @@ type Voucher = Database['public']['Tables']['vouchers']['Row']
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function voucherDraftKey(companyId: string) {
+  return `hisab:voucher-upload-draft:${companyId}`
+}
+
+type VoucherDraft = {
+  title: string
+  category: string
+  expenseDate: string
+  grossKr: string
+  vatRate: string
 }
 
 export function VouchersPage() {
@@ -30,6 +42,15 @@ export function VouchersPage() {
   const [dragActive, setDragActive] = useState(false)
   const overlayDragDepthRef = useRef(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  /** Layout sætter true efter kladden er læst — undgå at overskrive sessionStorage for tidligt. */
+  const canPersistVoucherDraft = useRef(false)
+  const latestDraftRef = useRef<VoucherDraft>({
+    title: '',
+    category: '',
+    expenseDate: todayIso(),
+    grossKr: '',
+    vatRate: '25',
+  })
 
   function openDesktopFilePicker() {
     document.getElementById('voucher-upload')?.scrollIntoView({
@@ -53,6 +74,60 @@ export function VouchersPage() {
   useEffect(() => {
     void load()
   }, [currentCompany])
+
+  useLayoutEffect(() => {
+    const cid = currentCompany?.id
+    canPersistVoucherDraft.current = false
+    if (!cid) return
+    try {
+      const raw = sessionStorage.getItem(voucherDraftKey(cid))
+      if (raw) {
+        const d = JSON.parse(raw) as Partial<VoucherDraft>
+        if (typeof d.title === 'string') setTitle(d.title)
+        if (typeof d.category === 'string') setCategory(d.category)
+        if (typeof d.expenseDate === 'string') setExpenseDate(d.expenseDate)
+        if (typeof d.grossKr === 'string') setGrossKr(d.grossKr)
+        if (typeof d.vatRate === 'string') setVatRate(d.vatRate)
+      } else {
+        setTitle('')
+        setCategory('')
+        setExpenseDate(todayIso())
+        setGrossKr('')
+        setVatRate('25')
+      }
+    } catch {
+      setTitle('')
+      setCategory('')
+      setExpenseDate(todayIso())
+      setGrossKr('')
+      setVatRate('25')
+    }
+    canPersistVoucherDraft.current = true
+  }, [currentCompany?.id])
+
+  latestDraftRef.current = {
+    title,
+    category,
+    expenseDate,
+    grossKr,
+    vatRate,
+  }
+
+  useEffect(() => {
+    const cid = currentCompany?.id
+    if (!cid || !canPersistVoucherDraft.current) return
+    const t = window.setTimeout(() => {
+      try {
+        sessionStorage.setItem(
+          voucherDraftKey(cid),
+          JSON.stringify(latestDraftRef.current),
+        )
+      } catch {
+        /* quota el.l. */
+      }
+    }, 0)
+    return () => window.clearTimeout(t)
+  }, [currentCompany?.id, title, category, expenseDate, grossKr, vatRate])
 
   async function uploadVoucherFile(file: File) {
     if (!currentCompany || !user) return
@@ -142,6 +217,11 @@ export function VouchersPage() {
     setGrossKr('')
     setVatRate('25')
     setExpenseDate(todayIso())
+    try {
+      sessionStorage.removeItem(voucherDraftKey(currentCompany.id))
+    } catch {
+      /* ignore */
+    }
     if (fileInputRef.current) fileInputRef.current.value = ''
     setUploading(false)
     await load()
