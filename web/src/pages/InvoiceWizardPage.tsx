@@ -58,14 +58,18 @@ function noticeForCvrInvokeFailure(error: unknown, data: unknown): string {
   if (error instanceof Error) {
     const m = error.message
     const lower = m.toLowerCase()
+    /* Supabase: «Failed to send a request to the Edge Function» m.m. — ofte ikke-deployet funktion eller netværk */
     if (
       lower.includes('failed to fetch') ||
+      lower.includes('failed to send') ||
+      lower.includes('edge function') ||
+      lower.includes('functions fetch') ||
       lower.includes('networkerror') ||
       lower.includes('load failed')
     ) {
       return (
-        'Kunne ikke nå CVR-søgning. Tjek netværk — eller at Edge Function «cvr-search» er deployet ' +
-        '(supabase functions deploy cvr-search).'
+        'CVR-søgning kunne ikke starte på serveren (Edge Function). Tjek netværk, og deploy «cvr-search» til dit ' +
+        'Supabase-projekt: supabase functions deploy cvr-search — samme projekt som i VITE_SUPABASE_URL.'
       )
     }
     return m
