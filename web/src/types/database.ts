@@ -386,6 +386,7 @@ export interface Database {
           pricing_pitch?: string | null
           pricing_features?: string | null
           pricing_cta_label?: string | null
+          pricing_corner_badge?: string | null
         }
       }
       platform_smtp_profiles: {

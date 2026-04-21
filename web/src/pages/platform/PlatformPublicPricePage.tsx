@@ -28,6 +28,7 @@ export function PlatformPublicPricePage() {
         pricing_pitch: pub.pricing_pitch?.trim() || null,
         pricing_features: pub.pricing_features?.trim() || null,
         pricing_cta_label: pub.pricing_cta_label?.trim() || null,
+        pricing_corner_badge: pub.pricing_corner_badge?.trim() || null,
       },
       'Pris og tekster gemt.',
     )
@@ -82,7 +83,7 @@ export function PlatformPublicPricePage() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label="Badge (lille pill)"
+            label="Badge (lille pill, midt foroven)"
             placeholder={PRICING_DEFAULTS.badge}
             value={pub.pricing_badge ?? ''}
             onChange={(v) => setPub((p) => ({ ...p, pricing_badge: v }))}
@@ -94,6 +95,13 @@ export function PlatformPublicPricePage() {
             onChange={(v) => setPub((p) => ({ ...p, pricing_plan_name: v }))}
           />
         </div>
+
+        <Field
+          label="Badge øverst til højre (tilbud / kampagne)"
+          placeholder="Tom: «Spar X%» ud fra sammenlignings- og kampagnepris nedenfor"
+          value={pub.pricing_corner_badge ?? ''}
+          onChange={(v) => setPub((p) => ({ ...p, pricing_corner_badge: v }))}
+        />
 
         <div className="grid gap-4 border-t border-slate-100 pt-4 sm:grid-cols-3">
           <div>

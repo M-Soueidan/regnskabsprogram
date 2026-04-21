@@ -3,6 +3,7 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useApp } from '@/context/AppProvider'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { formatDkk, formatKrPerMonth } from '@/lib/format'
+import { resolvePricingCornerBadge } from '@/lib/pricingCornerBadge'
 import { PRICING_DEFAULTS } from '@/lib/pricingPublicDefaults'
 import type { Database } from '@/types/database'
 
@@ -168,12 +169,24 @@ function PricingSection({ pub }: { pub: PublicSettings | null }) {
     .filter(Boolean)
   const cta = pub?.pricing_cta_label?.trim() || PRICING_DEFAULTS.cta
   const krWhole = Math.round(amountCents / 100)
+  const cornerLabel = resolvePricingCornerBadge({
+    customCorner: pub?.pricing_corner_badge,
+    compareCents,
+    amountCents,
+  })
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-24 text-center">
       <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h2>
       <p className="mt-4 text-lg text-slate-600">{subtitle}</p>
-      <div className="mx-auto mt-10 max-w-md rounded-2xl border-2 border-indigo-200 bg-white p-8 shadow-lg shadow-indigo-100/60">
+      <div className="relative mx-auto mt-10 max-w-md rounded-2xl border-2 border-indigo-200 bg-white p-8 pt-10 shadow-lg shadow-indigo-100/60">
+        {cornerLabel ? (
+          <span className="absolute right-4 top-4 max-w-[min(11rem,calc(100%-2rem))] text-right text-[11px] font-semibold leading-tight text-emerald-800 sm:text-xs">
+            <span className="inline-block rounded-full bg-emerald-50 px-2.5 py-1 ring-1 ring-emerald-200">
+              {cornerLabel}
+            </span>
+          </span>
+        ) : null}
         <div className="flex items-center justify-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">
             {badge}
