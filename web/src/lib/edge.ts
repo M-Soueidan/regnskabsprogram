@@ -1,3 +1,4 @@
+import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
 const fnUrl = (name: string) => {
@@ -63,6 +64,25 @@ function smtpTestHelpMessage(cause: string): string {
   return cause
 }
 
+/** Supabase viser kun «non-2xx»; den rigtige tekst ligger i response-body (fx SMTP-fejl). */
+async function messageFromFunctionsHttpError(err: FunctionsHttpError): Promise<string> {
+  const res = err.context as Response | undefined
+  if (!res?.json) {
+    return err.message
+  }
+  try {
+    const ct = (res.headers.get('Content-Type') ?? '').toLowerCase()
+    if (ct.includes('application/json')) {
+      const j = (await res.json()) as { error?: string; message?: string }
+      return j.error ?? j.message ?? err.message
+    }
+    const t = await res.text()
+    return t.trim() || err.message
+  } catch {
+    return err.message
+  }
+}
+
 export async function invokeSmtpTest(
   profileId: 'transactional' | 'platform' | 'marketing',
   options?: { testCompanyName?: string },
@@ -73,7 +93,7 @@ export async function invokeSmtpTest(
   }
 
   let data: unknown
-  let fnError: { message: string } | null
+  let fnError: unknown
   try {
     const out = await supabase.functions.invoke('smtp-test', {
       body: {
@@ -89,7 +109,13 @@ export async function invokeSmtpTest(
   }
 
   if (fnError) {
-    throw new Error(smtpTestHelpMessage(fnError.message))
+    if (fnError instanceof FunctionsHttpError) {
+      const detail = await messageFromFunctionsHttpError(fnError)
+      throw new Error(smtpTestHelpMessage(detail))
+    }
+    const msg =
+      fnError instanceof Error ? fnError.message : String(fnError)
+    throw new Error(smtpTestHelpMessage(msg))
   }
 
   const body = data as { ok?: boolean; error?: string } | null
