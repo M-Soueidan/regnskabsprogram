@@ -6,10 +6,10 @@ export async function logActivity(
   title: string,
   meta?: Record<string, unknown>,
 ) {
-  const { data: u } = await supabase.auth.getUser()
+  const { data: sessionData } = await supabase.auth.getSession()
   await supabase.from('activity_events').insert({
     company_id: companyId,
-    actor_id: u.user?.id ?? null,
+    actor_id: sessionData.session?.user?.id ?? null,
     event_type: eventType,
     title,
     meta: meta ?? null,
