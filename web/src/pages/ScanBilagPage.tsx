@@ -136,12 +136,25 @@ export function ScanBilagPage() {
   async function captureFromCamera() {
     const video = videoRef.current
     if (!video || video.readyState < 2) return
-    stopCamera()
     setPhase('processing')
     setOcrProgress(0)
     setSaveError(null)
+
     const dim = maxOcrDimension()
-    const cap = downscaleToCanvas(video, dim, dim)
+    /* Safari: må ikke stoppe kameraet før billedet er kopieret til canvas — ellers
+       «The object is in an invalid state» ved drawImage/toBlob. */
+    let cap: HTMLCanvasElement
+    try {
+      cap = downscaleToCanvas(video, dim, dim)
+    } catch (e) {
+      console.warn('[scan capture]', e)
+      setSaveError(
+        'Kunne ikke fange billede fra kameraet. Prøv igen, eller vælg foto fra Kamerarulle.',
+      )
+      setPhase('stream')
+      return
+    }
+
     const blob = await new Promise<Blob | null>((res) =>
       cap.toBlob((b) => res(b), 'image/jpeg', 0.92),
     )
@@ -152,6 +165,9 @@ export function ScanBilagPage() {
         return url
       })
     }
+
+    stopCamera()
+
     try {
       const text = await ocrReceiptCanvas(cap, (p) => setOcrProgress(p))
       setOcrText(text)
@@ -165,10 +181,14 @@ export function ScanBilagPage() {
       setPhase('review')
     } catch (e) {
       console.warn('[scan OCR]', e)
+      const raw = e instanceof Error ? e.message : String(e)
+      const msg =
+        raw.includes('invalid state') || raw.includes('InvalidStateError')
+          ? 'Kameraet var ikke klar — prøv igen, eller vælg billedet fra Kamerarulle.'
+          : raw
       setSaveError(
-        e instanceof Error
-          ? e.message
-          : 'Kunne ikke læse kvitteringen. Prøv «Kamerarulle» eller et mindre billede.',
+        msg ||
+          'Kunne ikke læse kvitteringen. Prøv «Kamerarulle» eller et mindre billede.',
       )
       setPhase('stream')
       setCameraKey((k) => k + 1)

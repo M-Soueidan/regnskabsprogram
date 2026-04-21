@@ -7,6 +7,7 @@ import { resolvePricingCornerBadge } from '@/lib/pricingCornerBadge'
 import { applyLandingSeoToDocument, mergeLandingSeo } from '@/lib/landingSeo'
 import { PRICING_DEFAULTS } from '@/lib/pricingPublicDefaults'
 import type { Database } from '@/types/database'
+import { BrandMark } from '@/components/BrandMark'
 
 function PricingPitchParagraph({
   template,
@@ -264,9 +265,7 @@ export function LandingPage() {
       <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link to="/" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-semibold text-white">
-              B
-            </span>
+            <BrandMark size="sm" />
             <span className="text-lg font-semibold">Bilago</span>
           </Link>
           <nav className="hidden items-center gap-8 text-sm text-slate-600 md:flex">
@@ -611,9 +610,7 @@ export function LandingPage() {
         <div className="mx-auto grid max-w-6xl gap-10 px-6 py-14 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-semibold text-white">
-                H
-              </span>
+              <BrandMark size="sm" />
               <span className="text-lg font-semibold">Bilago</span>
             </div>
             <p className="mt-3 text-sm text-slate-600">

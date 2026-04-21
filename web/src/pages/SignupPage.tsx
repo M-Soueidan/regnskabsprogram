@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { invokePlatformEmail } from '@/lib/edge'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
+import { BrandMark } from '@/components/BrandMark'
 import { validateSignupPassword } from '@/lib/passwordPolicy'
 
 export function SignupPage() {
@@ -66,6 +67,9 @@ export function SignupPage() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="mb-6 flex justify-center">
+          <BrandMark />
+        </div>
         <h1 className="text-2xl font-semibold text-slate-900">Opret konto</h1>
         <p className="mt-1 text-sm text-slate-500">Start med virksomhed og abonnement</p>
         <form className="mt-6 space-y-4" onSubmit={(e) => void submit(e)}>

@@ -5,6 +5,7 @@ import { useApp, subscriptionOk } from '@/context/AppProvider'
 import { redirectToStripeCheckout } from '@/lib/edge'
 import { logoutToLanding } from '@/lib/logoutToLanding'
 import { supabase } from '@/lib/supabase'
+import { BrandMark } from '@/components/BrandMark'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
 
 type NavIconProps = { className?: string }
@@ -129,11 +130,16 @@ export function AppShell({ children }: { children?: ReactNode }) {
     <div className="flex min-h-screen bg-slate-50">
       <aside className="hidden w-56 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
         <div className="border-b border-slate-100 px-4 py-5">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Bilago
-          </div>
-          <div className="mt-1 text-lg font-semibold text-slate-900">
-            Regnskab
+          <div className="flex items-center gap-3">
+            <BrandMark />
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Bilago
+              </div>
+              <div className="mt-1 text-lg font-semibold text-slate-900">
+                Regnskab
+              </div>
+            </div>
           </div>
         </div>
         <nav className="flex flex-1 flex-col gap-0.5 p-3">

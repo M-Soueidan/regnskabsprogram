@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { invokeAuthPasswordReset } from '@/lib/edge'
+import { BrandMark } from '@/components/BrandMark'
 import { useApp } from '@/context/AppProvider'
 
 export function LoginPage() {
@@ -56,6 +57,9 @@ export function LoginPage() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="mb-6 flex justify-center">
+          <BrandMark />
+        </div>
         {mode === 'login' ? (
           <>
             <h1 className="text-2xl font-semibold text-slate-900">Log ind</h1>

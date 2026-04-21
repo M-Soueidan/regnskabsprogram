@@ -4,6 +4,14 @@ import './index.css'
 import App from './App.tsx'
 import { RootErrorBoundary } from './RootErrorBoundary.tsx'
 
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
+      console.warn('[service worker]', err)
+    })
+  })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <RootErrorBoundary>
