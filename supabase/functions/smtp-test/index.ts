@@ -20,13 +20,27 @@ serve(async (req) => {
     return jsonResponse({ error: 'Unauthorized' }, 401)
   }
 
+  // Undgå userClient.auth.getUser(): lokalt JWT-parse i supabase-js understøtter ikke altid ES256,
+  // som Supabase Auth kan udstede. Auth-API validerer token server-side.
+  const base = supabaseUrl.replace(/\/$/, '')
+  const authRes = await fetch(`${base}/auth/v1/user`, {
+    headers: {
+      Authorization: authHeader,
+      apikey: anon,
+    },
+  })
+  if (!authRes.ok) {
+    return jsonResponse({ error: 'Unauthorized' }, 401)
+  }
+  const authUser = (await authRes.json()) as { id?: string; email?: string }
+  if (!authUser.email?.trim()) {
+    return jsonResponse({ error: 'Unauthorized eller mangler e-mail på kontoen' }, 401)
+  }
+  const userEmail = authUser.email.trim()
+
   const userClient = createClient(supabaseUrl, anon, {
     global: { headers: { Authorization: authHeader } },
   })
-  const { data: userData, error: userErr } = await userClient.auth.getUser()
-  if (userErr || !userData.user?.email) {
-    return jsonResponse({ error: 'Unauthorized eller mangler e-mail på kontoen' }, 401)
-  }
 
   let body: { profile_id?: string; test_company_name?: string }
   try {
@@ -84,7 +98,7 @@ serve(async (req) => {
   try {
     await transporter.sendMail({
       from: { name: fromName, address: fromEmail },
-      to: userData.user.email,
+      to: userEmail,
       subject: `[Bilago] SMTP-test (${profile.label})`,
       text:
         `Dette er en testmail fra Bilago-platformen.\n\n` +
