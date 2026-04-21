@@ -1,5 +1,5 @@
 import { createWorker } from 'tesseract.js'
-import { cropCenterRegion } from '@/lib/documentDetect'
+import { cropCenterRegion, downscaleToCanvas } from '@/lib/documentDetect'
 import { renderPdfFirstPageToCanvas } from '@/lib/pdfToCanvas'
 
 /**
@@ -47,9 +47,27 @@ export async function ocrImageOrPdfFile(
     },
   })
   try {
-    const source = isPdf ? canvas : cropCenterRegion(canvas, 0.06)
-    const { data } = await worker.recognize(source)
-    return data.text
+    const runRecognize = async (source: HTMLCanvasElement) => {
+      const { data } = await worker.recognize(source)
+      return data.text
+    }
+
+    if (isPdf) {
+      const scaled = downscaleToCanvas(canvas, 2400, 2400)
+      return await runRecognize(scaled)
+    }
+
+    /* Billede: start med midterudsnit (kvittering i ramme); hvis næsten ingen tekst, prøv hele billedet. */
+    const cropped = cropCenterRegion(canvas, 0.06)
+    let text = await runRecognize(cropped)
+    if (text.trim().length < 40) {
+      const full = downscaleToCanvas(canvas, 2400, 2400)
+      const fallback = await runRecognize(full)
+      if (fallback.trim().length > text.trim().length) {
+        text = fallback
+      }
+    }
+    return text
   } finally {
     await worker.terminate()
   }

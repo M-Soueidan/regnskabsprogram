@@ -164,9 +164,11 @@ export function VouchersPage() {
         if (parsed.vatRateGuess !== null) {
           vatRateForDb = String(parsed.vatRateGuess)
         }
-      } catch {
+      } catch (e) {
+        console.warn('[bilag OCR]', e)
         setOcrWarning(
-          'Kunne ikke læse bilaget automatisk. Tjek felterne eller prøv «Scan bilag» på mobil.',
+          'Kunne ikke læse bilaget automatisk (fx ved HEIC, beskyttet PDF eller meget store filer). ' +
+            'Udfyld beløb og dato manuelt — filen uploades alligevel. På mobil kan «Scan bilag» virke bedre.',
         )
       }
     }
