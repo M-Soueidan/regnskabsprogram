@@ -93,8 +93,8 @@ export function MorePage() {
   const navigate = useNavigate()
 
   async function logout() {
+    navigate('/', { replace: true })
     await supabase.auth.signOut()
-    navigate('/')
   }
 
   return (

@@ -112,8 +112,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const ok = subscriptionOk(subscription)
 
   async function logout() {
+    // Navigér væk fra beskyttede ruter før signOut, ellers rammer ProtectedRoute /login.
+    navigate('/', { replace: true })
     await supabase.auth.signOut()
-    navigate('/')
   }
 
   async function endImpersonation() {

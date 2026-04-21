@@ -17,8 +17,8 @@ export function PlatformShell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate()
 
   async function logout() {
+    navigate('/', { replace: true })
     await supabase.auth.signOut()
-    navigate('/')
   }
 
   return (
