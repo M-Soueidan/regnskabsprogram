@@ -68,6 +68,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
+    setLoading(true)
     const { data: sessionData } = await supabase.auth.getSession()
     const s = sessionData.session
     setSession(s)
@@ -186,7 +187,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return
     }
     void load()
-    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === 'TOKEN_REFRESHED') {
+        setSession(nextSession)
+        setUser(nextSession?.user ?? null)
+        return
+      }
       void load()
     })
     return () => sub.subscription.unsubscribe()

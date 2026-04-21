@@ -2,10 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useApp } from '@/context/AppProvider'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/types/database'
 import { formatDateTime } from '@/lib/format'
 
-type StaffRow = Database['public']['Tables']['platform_staff']['Row']
+type StaffRow = {
+  user_id: string
+  role: 'superadmin' | 'support_admin'
+  created_at: string
+  email: string
+}
 
 export function PlatformStaffPage() {
   const { platformRole } = useApp()
@@ -18,16 +22,14 @@ export function PlatformStaffPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data, error: qErr } = await supabase
-      .from('platform_staff')
-      .select('*')
-      .order('created_at', { ascending: true })
+    const { data, error: qErr } = await supabase.rpc('list_platform_staff_with_emails')
     setLoading(false)
     if (qErr) {
       setError(qErr.message)
       return
     }
-    setRows(data ?? [])
+    const list = (data ?? []) as StaffRow[]
+    setRows(list)
   }, [])
 
   useEffect(() => {
@@ -125,7 +127,7 @@ export function PlatformStaffPage() {
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">Bruger-ID</th>
+                <th className="px-4 py-3">E-mail</th>
                 <th className="px-4 py-3">Rolle</th>
                 <th className="hidden px-4 py-3 sm:table-cell">Oprettet</th>
                 <th className="px-4 py-3 text-right">Handling</th>
@@ -134,8 +136,8 @@ export function PlatformStaffPage() {
             <tbody className="divide-y divide-slate-100">
               {rows.map((r) => (
                 <tr key={r.user_id}>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-700">
-                    {r.user_id}
+                  <td className="px-4 py-3 text-slate-800">
+                    <span className="break-all">{r.email}</span>
                   </td>
                   <td className="px-4 py-3">
                     {r.role === 'superadmin' ? 'Superadmin' : 'Support'}

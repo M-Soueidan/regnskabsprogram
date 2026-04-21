@@ -52,13 +52,20 @@ export function OnboardingPage() {
     }
   }, [searchParams, refresh])
 
-  if (!loading && !session) {
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-slate-500">
+        Indlæser…
+      </div>
+    )
+  }
+
+  if (!session) {
     return <Navigate to="/login" replace />
   }
 
   /* Platform-staff uden eget medlemskab skal ikke sidde fast her (RPC/RLS kan have fejlet før). */
   if (
-    !loading &&
     platformRole &&
     tenantCompanyCount === 0 &&
     searchParams.get('opret') !== '1'
@@ -66,7 +73,7 @@ export function OnboardingPage() {
     return <Navigate to="/platform/dashboard" replace />
   }
 
-  if (!loading && companies.length > 0 && subscriptionOk(subscription)) {
+  if (companies.length > 0 && subscriptionOk(subscription)) {
     return <Navigate to="/app/dashboard" replace />
   }
 
@@ -127,14 +134,6 @@ export function OnboardingPage() {
       setError(err instanceof Error ? err.message : 'Checkout fejlede')
       setBusy(false)
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-slate-500">
-        Indlæser…
-      </div>
-    )
   }
 
   const needsCompany = companies.length === 0

@@ -489,6 +489,15 @@ export interface Database {
       begin_platform_impersonation: { Args: { p_company_id: string }; Returns: undefined }
       end_platform_impersonation: { Args: Record<string, never>; Returns: undefined }
       add_support_admin_by_email: { Args: { p_email: string }; Returns: undefined }
+      list_platform_staff_with_emails: {
+        Args: Record<string, never>
+        Returns: {
+          user_id: string
+          role: string
+          created_at: string
+          email: string
+        }[]
+      }
       get_my_platform_role: { Args: Record<string, never>; Returns: string | null }
       ensure_platform_smtp_profiles: { Args: Record<string, never>; Returns: undefined }
     }

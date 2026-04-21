@@ -3,14 +3,16 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { invokePlatformEmail } from '@/lib/edge'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
+import { validateSignupPassword } from '@/lib/passwordPolicy'
 
 export function SignupPage() {
-  const { session, loading } = useApp()
+  const { session, loading, refresh } = useApp()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   if (!loading && session) {
@@ -21,14 +23,32 @@ export function SignupPage() {
     e.preventDefault()
     setBusy(true)
     setError(null)
+    setInfo(null)
+    const pwErr = validateSignupPassword(password)
+    if (pwErr) {
+      setError(pwErr)
+      setBusy(false)
+      return
+    }
+    const origin = window.location.origin
     const { data, error: err } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo: `${origin}/onboarding`,
+      },
     })
-    setBusy(false)
     if (err) {
       setError(err.message)
+      setBusy(false)
+      return
+    }
+    if (!data.session) {
+      setInfo(
+        'Vi har sendt et bekræftelseslink til din e-mail. Når du har bekræftet, kommer du til «Kom i gang» (CVR og virksomhed).',
+      )
+      setBusy(false)
       return
     }
     if (data.session) {
@@ -38,7 +58,9 @@ export function SignupPage() {
         /* valgfri velkomst — fortsæt onboarding */
       }
     }
-    navigate('/onboarding')
+    await refresh()
+    setBusy(false)
+    navigate('/onboarding', { replace: true })
   }
 
   return (
@@ -89,10 +111,18 @@ export function SignupPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <p className="mt-1 text-xs text-slate-500">
+              Mindst 8 tegn: små og store bogstaver, tal og mindst ét symbol (fx ! # -).
+            </p>
           </div>
           {error ? (
             <p className="text-sm text-red-600" role="alert">
               {error}
+            </p>
+          ) : null}
+          {info ? (
+            <p className="text-sm text-emerald-800" role="status">
+              {info}
             </p>
           ) : null}
           <button

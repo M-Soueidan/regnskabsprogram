@@ -28,10 +28,13 @@ export function PlatformSettingsSideNav() {
   const location = useLocation()
   const { platformRole } = useApp()
   const onSettings = location.pathname.startsWith('/platform/settings')
-  const [open, setOpen] = useState(onSettings)
+  /** Undermenu synlig på andre platform-sider, når brugeren har foldet den ud manuelt */
+  const [peekOpen, setPeekOpen] = useState(false)
+  /** På indstillingssider: altid udvidet, så navigation mellem undersider ikke skjuler menuen */
+  const expanded = onSettings || peekOpen
 
   useEffect(() => {
-    if (onSettings) setOpen(true)
+    if (onSettings) setPeekOpen(false)
   }, [onSettings])
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -46,19 +49,23 @@ export function PlatformSettingsSideNav() {
     <div className="border-b border-slate-800 pb-2">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (onSettings) return
+          setPeekOpen((v) => !v)
+        }}
         className={clsx(
           'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition',
           onSettings
-            ? 'bg-slate-800 text-white'
+            ? 'cursor-default bg-slate-800 text-white'
             : 'text-slate-400 hover:bg-slate-800/80 hover:text-white',
         )}
-        aria-expanded={open}
+        aria-expanded={expanded}
+        title={onSettings ? undefined : 'Fold ud eller ind'}
       >
         Indstillinger
-        <Chevron open={open} />
+        <Chevron open={expanded} />
       </button>
-      {open ? (
+      {expanded ? (
         <div className="mt-1 space-y-0.5 border-l border-slate-700/80 pl-2 ml-2">
           <div className={subLabel}>Offentligt</div>
           {PUBLIC_SETTINGS_LINKS.map((item) => (
