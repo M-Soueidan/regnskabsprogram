@@ -3,14 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 import { loadSmtpProfile, sendSmtpHtml } from '../_shared/smtpMail.ts'
 import { mergeEmailTemplates, renderFinalEmail } from '../_shared/emailTemplateConfig.ts'
-
-function appUrl(): string {
-  return (
-    Deno.env.get('APP_PUBLIC_URL')?.trim() ||
-    Deno.env.get('SITE_URL')?.trim() ||
-    'https://bilago.dk'
-  ).replace(/\/$/, '')
-}
+import { resolveAppPublicUrl } from '../_shared/appUrl.ts'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -45,7 +38,7 @@ serve(async (req) => {
     .maybeSingle()
 
   const templates = mergeEmailTemplates(pub?.email_templates)
-  const redirectTo = `${appUrl()}/login`
+  const redirectTo = `${resolveAppPublicUrl()}/login`
 
   if (!templates.password_reset.enabled) {
     const { error: e } = await publicClient.auth.resetPasswordForEmail(email, {

@@ -43,6 +43,6 @@ Afhænger af produkt (fx **hPanel → Git** eller statisk hosting):
 
 ### Efter deploy (ikke automatisk i repo)
 
-- **Supabase → Authentication → URL Configuration:** tilføj produktions-URL (fx `https://bilago.dk/**`).
-- **Supabase Edge secret `APP_URL`:** samme base-URL som frontend.
-- **Stripe** success/cancel bygger på `APP_URL` i Edge Functions.
+- **Supabase → Authentication → URL Configuration:** Site URL `https://bilago.dk`, redirect fx `https://bilago.dk/**` og `https://bilago.dk/onboarding`.
+- **Supabase → Edge Functions → Secrets:** `APP_URL=https://bilago.dk` (eller `SITE_URL` / `APP_PUBLIC_URL` — samme effekt). Uden secret bruger funktionerne stadig `https://bilago.dk` som standard.
+- **Stripe** success/cancel-URL’er i `stripe-checkout` bruger den samme base-URL.

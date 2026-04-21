@@ -7,14 +7,7 @@ import {
   mergeEmailTemplates,
   renderFinalEmail,
 } from '../_shared/emailTemplateConfig.ts'
-
-function appUrl(): string {
-  return (
-    Deno.env.get('APP_PUBLIC_URL')?.trim() ||
-    Deno.env.get('SITE_URL')?.trim() ||
-    'https://bilago.dk'
-  ).replace(/\/$/, '')
-}
+import { resolveAppPublicUrl } from '../_shared/appUrl.ts'
 
 function formatDkk(cents: number): string {
   return new Intl.NumberFormat('da-DK', {
@@ -150,7 +143,7 @@ serve(async (req) => {
 
     const rendered = renderFinalEmail('welcome_new_user', templates, {
       user_name: userName,
-      login_url: `${appUrl()}/login`,
+      login_url: `${resolveAppPublicUrl()}/login`,
     })
     if (!rendered) {
       return jsonResponse({ ok: true, skipped: true })
@@ -196,7 +189,7 @@ serve(async (req) => {
       company_name: company?.name?.trim() || 'Virksomhed',
       role_label: ROLE_LABELS[role] ?? role,
       invitee_email: inviteeEmail,
-      signup_url: `${appUrl()}/signup`,
+      signup_url: `${resolveAppPublicUrl()}/signup`,
     })
     if (!rendered) {
       return jsonResponse({ ok: true, skipped: true })

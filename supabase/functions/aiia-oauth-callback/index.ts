@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { resolveAppPublicUrl } from '../_shared/appUrl.ts'
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +14,7 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const admin = createClient(supabaseUrl, serviceKey)
-  const appUrl = Deno.env.get('APP_URL') ?? 'http://localhost:5173'
+  const appUrl = resolveAppPublicUrl()
 
   const url = new URL(req.url)
   const code = url.searchParams.get('code')
