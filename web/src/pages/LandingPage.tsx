@@ -1,5 +1,9 @@
+import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useApp } from '@/context/AppProvider'
+import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { formatDkk } from '@/lib/format'
+import type { Database } from '@/types/database'
 
 type IconProps = { className?: string }
 
@@ -123,8 +127,23 @@ const faqs = [
   },
 ]
 
+type PublicSettings = Database['public']['Tables']['platform_public_settings']['Row']
+
 export function LandingPage() {
   const { session, loading } = useApp()
+  const [pub, setPub] = useState<PublicSettings | null>(null)
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    void supabase
+      .from('platform_public_settings')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setPub(data)
+      })
+  }, [])
 
   if (!loading && session) {
     return <Navigate to="/home" replace />
@@ -476,6 +495,11 @@ export function LandingPage() {
               <span className="text-5xl font-semibold text-slate-900">99</span>
               <span className="text-base text-slate-500">kr./md</span>
             </div>
+            {pub?.monthly_price_cents != null && pub.monthly_price_cents > 0 ? (
+              <p className="mt-2 text-xs text-slate-500">
+                Listepris i systemet: {formatDkk(pub.monthly_price_cents)} / md (kan styres under platform).
+              </p>
+            ) : null}
             <p className="mt-3 text-xs text-slate-600">
               Første måned gratis. Tilmeld dig nu og behold <strong className="text-slate-900">99 kr./md</strong> for altid — så længe dit abonnement løber.
             </p>
@@ -553,7 +577,33 @@ export function LandingPage() {
           <div>
             <div className="text-sm font-semibold text-slate-900">Kontakt</div>
             <ul className="mt-3 space-y-2 text-sm text-slate-600">
-              <li>support@bilago.dk</li>
+              {pub?.contact_email ? (
+                <li>
+                  <a href={`mailto:${pub.contact_email}`} className="hover:text-slate-900">
+                    {pub.contact_email}
+                  </a>
+                </li>
+              ) : (
+                <li>support@bilago.dk</li>
+              )}
+              {pub?.contact_phone ? <li>{pub.contact_phone}</li> : null}
+              {pub?.support_hours ? (
+                <li className="text-xs text-slate-500">{pub.support_hours}</li>
+              ) : null}
+              {pub?.terms_url ? (
+                <li>
+                  <a href={pub.terms_url} className="hover:text-slate-900" target="_blank" rel="noreferrer">
+                    Vilkår
+                  </a>
+                </li>
+              ) : null}
+              {pub?.privacy_url ? (
+                <li>
+                  <a href={pub.privacy_url} className="hover:text-slate-900" target="_blank" rel="noreferrer">
+                    Privatliv
+                  </a>
+                </li>
+              ) : null}
             </ul>
           </div>
         </div>

@@ -15,6 +15,13 @@ type Company = Database['public']['Tables']['companies']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
 type Subscription = Database['public']['Tables']['subscriptions']['Row']
 
+export type PlatformStaffRole = 'superadmin' | 'support_admin'
+
+export type ImpersonationInfo = {
+  companyId: string
+  expiresAt: string
+}
+
 type AppContextValue = {
   session: Session | null
   user: User | null
@@ -24,6 +31,10 @@ type AppContextValue = {
   rolesByCompany: Record<string, CompanyRole>
   currentRole: CompanyRole | null
   subscription: Subscription | null
+  platformRole: PlatformStaffRole | null
+  impersonation: ImpersonationInfo | null
+  /** Antal virksomheder brugeren er medlem af (ikke impersonation). */
+  tenantCompanyCount: number
   loading: boolean
   refresh: () => Promise<void>
   setCurrentCompanyId: (id: string) => Promise<void>
@@ -38,6 +49,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [companies, setCompanies] = useState<Company[]>([])
   const [rolesByCompany, setRolesByCompany] = useState<Record<string, CompanyRole>>({})
   const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [platformRole, setPlatformRole] = useState<PlatformStaffRole | null>(null)
+  const [impersonation, setImpersonation] = useState<ImpersonationInfo | null>(null)
+  const [tenantCompanyCount, setTenantCompanyCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -48,6 +62,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCompanies([])
       setRolesByCompany({})
       setSubscription(null)
+      setPlatformRole(null)
+      setImpersonation(null)
+      setTenantCompanyCount(0)
       setLoading(false)
       return
     }
@@ -60,8 +77,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCompanies([])
       setRolesByCompany({})
       setSubscription(null)
+      setPlatformRole(null)
+      setImpersonation(null)
+      setTenantCompanyCount(0)
       setLoading(false)
       return
+    }
+
+    const { data: psRow } = await supabase
+      .from('platform_staff')
+      .select('role')
+      .eq('user_id', s.user.id)
+      .maybeSingle()
+    setPlatformRole((psRow?.role as PlatformStaffRole) ?? null)
+
+    const { data: impRow } = await supabase
+      .from('support_impersonation')
+      .select('company_id, expires_at')
+      .eq('user_id', s.user.id)
+      .maybeSingle()
+    if (
+      impRow &&
+      new Date(impRow.expires_at).getTime() > Date.now()
+    ) {
+      setImpersonation({
+        companyId: impRow.company_id,
+        expiresAt: impRow.expires_at,
+      })
+    } else {
+      setImpersonation(null)
     }
 
     const { data: prof } = await supabase
@@ -78,6 +122,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .eq('user_id', s.user.id)
 
     const ids = memberships?.map((m) => m.company_id) ?? []
+    setTenantCompanyCount(ids.length)
     const roles: Record<string, CompanyRole> = {}
     for (const m of memberships ?? []) {
       roles[m.company_id] = m.role as CompanyRole
@@ -90,6 +135,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .select('*')
         .in('id', ids)
       list = comps ?? []
+    }
+    const curCid = prof?.current_company_id
+    if (curCid && !list.some((c) => c.id === curCid)) {
+      const { data: extra } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', curCid)
+        .maybeSingle()
+      if (extra) list = [...list, extra]
     }
     setCompanies(list)
 
@@ -151,8 +205,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const currentRole = useMemo<CompanyRole | null>(() => {
     if (!currentCompany) return null
-    return rolesByCompany[currentCompany.id] ?? null
-  }, [currentCompany, rolesByCompany])
+    const r = rolesByCompany[currentCompany.id]
+    if (r) return r
+    /* Platform staff impersonation: ikke medlem, men har adgang via RLS */
+    if (platformRole && profile?.current_company_id === currentCompany.id) {
+      return 'bookkeeper'
+    }
+    return null
+  }, [currentCompany, rolesByCompany, platformRole, profile?.current_company_id])
 
   const value = useMemo(
     () => ({
@@ -164,6 +224,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       rolesByCompany,
       currentRole,
       subscription,
+      platformRole,
+      impersonation,
+      tenantCompanyCount,
       loading,
       refresh: load,
       setCurrentCompanyId,
@@ -177,6 +240,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       rolesByCompany,
       currentRole,
       subscription,
+      platformRole,
+      impersonation,
+      tenantCompanyCount,
       loading,
       load,
       setCurrentCompanyId,

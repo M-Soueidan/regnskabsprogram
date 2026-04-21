@@ -3,6 +3,8 @@ import { AppProvider } from '@/context/AppProvider'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { AppShell } from '@/components/AppShell'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { ProtectedPlatformRoute } from '@/components/ProtectedPlatformRoute'
+import { PlatformShell } from '@/components/PlatformShell'
 import { RequireSubscription } from '@/components/RequireSubscription'
 import { HomeRedirect } from '@/components/HomeRedirect'
 import { LandingPage } from '@/pages/LandingPage'
@@ -21,6 +23,12 @@ import { SettingsPage } from '@/pages/SettingsPage'
 import { MembersPage } from '@/pages/MembersPage'
 import { VatPage } from '@/pages/VatPage'
 import { MorePage } from '@/pages/MorePage'
+import { SupportPage } from '@/pages/SupportPage'
+import { PlatformDashboardPage } from '@/pages/platform/PlatformDashboardPage'
+import { PlatformCompaniesPage } from '@/pages/platform/PlatformCompaniesPage'
+import { PlatformSupportPage } from '@/pages/platform/PlatformSupportPage'
+import { PlatformSettingsPage } from '@/pages/platform/PlatformSettingsPage'
+import { PlatformStaffPage } from '@/pages/platform/PlatformStaffPage'
 
 function MissingConfigPage() {
   return (
@@ -62,6 +70,15 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route element={<ProtectedRoute />}>
+            <Route element={<ProtectedPlatformRoute />}>
+              <Route element={<PlatformShell />}>
+                <Route path="/platform/dashboard" element={<PlatformDashboardPage />} />
+                <Route path="/platform/companies" element={<PlatformCompaniesPage />} />
+                <Route path="/platform/support" element={<PlatformSupportPage />} />
+                <Route path="/platform/settings" element={<PlatformSettingsPage />} />
+                <Route path="/platform/staff" element={<PlatformStaffPage />} />
+              </Route>
+            </Route>
             <Route path="/home" element={<HomeRedirect />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route element={<AppShell />}>
@@ -70,6 +87,7 @@ export default function App() {
               <Route path="/app/more" element={<MorePage />} />
               <Route path="/app/members" element={<MembersPage />} />
               <Route element={<RequireSubscription />}>
+                <Route path="/app/support" element={<SupportPage />} />
                 <Route path="/app/invoices" element={<InvoicesPage />} />
                 <Route path="/app/invoices/new" element={<InvoiceWizardPage />} />
                 <Route path="/app/invoices/:id/pdf" element={<InvoicePdfPage />} />

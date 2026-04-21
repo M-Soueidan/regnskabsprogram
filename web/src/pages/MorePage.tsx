@@ -71,7 +71,17 @@ function LogoutIcon({ className }: IconProps) {
   )
 }
 
+function ChatIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a8 8 0 0 1-8 8H9l-4 3v-3H7a8 8 0 0 1-8-8 8 8 0 0 1 16 0Z" />
+      <path d="M8 10h.01M12 10h.01M16 10h.01" />
+    </svg>
+  )
+}
+
 const items = [
+  { to: '/app/support', label: 'Support', icon: ChatIcon },
   { to: '/app/bank', label: 'Bank', icon: BankIcon },
   { to: '/app/vat', label: 'Moms', icon: PercentIcon },
   { to: '/app/members', label: 'Medlemmer', icon: UsersIcon },

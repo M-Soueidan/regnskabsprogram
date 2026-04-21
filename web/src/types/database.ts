@@ -287,6 +287,145 @@ export interface Database {
         }
         Update: never
       }
+      platform_staff: {
+        Row: {
+          user_id: string
+          role: 'superadmin' | 'support_admin'
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          role: 'superadmin' | 'support_admin'
+        }
+        Update: { role?: 'superadmin' | 'support_admin' }
+      }
+      support_impersonation: {
+        Row: {
+          user_id: string
+          company_id: string
+          previous_company_id: string | null
+          expires_at: string
+        }
+        Insert: {
+          user_id: string
+          company_id: string
+          previous_company_id?: string | null
+          expires_at: string
+        }
+        Update: {
+          company_id?: string
+          previous_company_id?: string | null
+          expires_at?: string
+        }
+      }
+      platform_public_settings: {
+        Row: {
+          id: number
+          contact_email: string | null
+          contact_phone: string | null
+          address_line: string | null
+          postal_code: string | null
+          city: string | null
+          org_cvr: string | null
+          support_hours: string | null
+          terms_url: string | null
+          privacy_url: string | null
+          monthly_price_cents: number | null
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          contact_email?: string | null
+          contact_phone?: string | null
+          address_line?: string | null
+          postal_code?: string | null
+          city?: string | null
+          org_cvr?: string | null
+          support_hours?: string | null
+          terms_url?: string | null
+          privacy_url?: string | null
+          monthly_price_cents?: number | null
+        }
+        Update: {
+          contact_email?: string | null
+          contact_phone?: string | null
+          address_line?: string | null
+          postal_code?: string | null
+          city?: string | null
+          org_cvr?: string | null
+          support_hours?: string | null
+          terms_url?: string | null
+          privacy_url?: string | null
+          monthly_price_cents?: number | null
+        }
+      }
+      platform_smtp_profiles: {
+        Row: {
+          id: string
+          label: string
+          host: string | null
+          port: number | null
+          user_name: string | null
+          from_email: string | null
+          from_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          label: string
+          host?: string | null
+          port?: number | null
+          user_name?: string | null
+          from_email?: string | null
+          from_name?: string | null
+        }
+        Update: {
+          label?: string
+          host?: string | null
+          port?: number | null
+          user_name?: string | null
+          from_email?: string | null
+          from_name?: string | null
+        }
+      }
+      support_tickets: {
+        Row: {
+          id: string
+          company_id: string
+          status: 'open' | 'closed' | 'waiting_customer'
+          consent_deep_access: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          status?: 'open' | 'closed' | 'waiting_customer'
+          consent_deep_access?: boolean
+        }
+        Update: {
+          status?: 'open' | 'closed' | 'waiting_customer'
+          consent_deep_access?: boolean
+        }
+      }
+      support_messages: {
+        Row: {
+          id: string
+          ticket_id: string
+          user_id: string | null
+          body: string
+          is_staff: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ticket_id: string
+          user_id?: string | null
+          body: string
+          is_staff?: boolean
+        }
+        Update: never
+      }
     }
     Functions: {
       next_invoice_number: { Args: { p_company_id: string }; Returns: string }
@@ -308,6 +447,9 @@ export interface Database {
           usage_count: number
         }[]
       }
+      begin_platform_impersonation: { Args: { p_company_id: string }; Returns: undefined }
+      end_platform_impersonation: { Args: Record<string, never>; Returns: undefined }
+      add_support_admin_by_email: { Args: { p_email: string }; Returns: undefined }
     }
   }
 }

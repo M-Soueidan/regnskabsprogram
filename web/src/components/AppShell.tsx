@@ -16,7 +16,17 @@ const nav = [
   { to: '/app/vat', label: 'Moms', icon: PercentIcon },
   { to: '/app/members', label: 'Medlemmer', icon: UsersIcon },
   { to: '/app/settings', label: 'Indstillinger', icon: CogIcon },
+  { to: '/app/support', label: 'Support', icon: ChatIcon },
 ]
+
+function ChatIcon({ className }: NavIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a8 8 0 0 1-8 8H9l-4 3v-3H7a8 8 0 0 1-8-8 8 8 0 0 1 16 0Z" />
+      <path d="M8 10h.01M12 10h.01M16 10h.01" />
+    </svg>
+  )
+}
 
 function HomeIcon({ className }: NavIconProps) {
   return (
@@ -93,6 +103,10 @@ export function AppShell({ children }: { children?: ReactNode }) {
     currentCompany,
     subscription,
     setCurrentCompanyId,
+    impersonation,
+    platformRole,
+    tenantCompanyCount,
+    refresh,
   } = useApp()
   const navigate = useNavigate()
   const ok = subscriptionOk(subscription)
@@ -100,6 +114,15 @@ export function AppShell({ children }: { children?: ReactNode }) {
   async function logout() {
     await supabase.auth.signOut()
     navigate('/login')
+  }
+
+  async function endImpersonation() {
+    const { error: rpcErr } = await supabase.rpc('end_platform_impersonation')
+    if (rpcErr) return
+    await refresh()
+    navigate(
+      tenantCompanyCount > 0 ? '/app/dashboard' : '/platform/dashboard',
+    )
   }
 
   return (
@@ -184,6 +207,23 @@ export function AppShell({ children }: { children?: ReactNode }) {
             </button>
           </div>
         </header>
+
+        {impersonation && currentCompany && platformRole ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            <span>
+              <strong>Impersonation:</strong> du ser som{' '}
+              <strong>{currentCompany.name}</strong> (udløber{' '}
+              {new Date(impersonation.expiresAt).toLocaleString('da-DK')}).
+            </span>
+            <button
+              type="button"
+              onClick={() => void endImpersonation()}
+              className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-950 hover:bg-amber-100"
+            >
+              Afslut
+            </button>
+          </div>
+        ) : null}
 
         {!ok && currentCompany ? (
           <div className="border-b border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-900">
