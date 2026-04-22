@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { ROLE_LABELS, useApp } from '@/context/AppProvider'
+import { useSupportUnread } from '@/context/SupportUnreadContext'
 import { logoutToLanding } from '@/lib/logoutToLanding'
 
 type IconProps = { className?: string }
@@ -90,6 +91,7 @@ const items = [
 
 export function MorePage() {
   const { currentCompany, currentRole, user } = useApp()
+  const { unreadCount } = useSupportUnread()
   const navigate = useNavigate()
 
   async function logout() {
@@ -128,7 +130,14 @@ export function MorePage() {
               to={i.to}
               className="flex items-center gap-4 px-5 py-4 text-slate-800 hover:bg-slate-50"
             >
-              <i.icon className="h-5 w-5 text-indigo-600" />
+              <span className="relative inline-flex shrink-0">
+                <i.icon className="h-5 w-5 text-indigo-600" />
+                {i.to === '/app/support' && unreadCount > 0 ? (
+                  <span className="absolute -right-2 -top-2 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white shadow-sm">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                ) : null}
+              </span>
               <span className="flex-1 text-sm font-semibold">{i.label}</span>
               <ChevronIcon className="h-4 w-4 text-slate-400" />
             </Link>

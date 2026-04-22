@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
+import { useSupportUnread } from '@/context/SupportUnreadContext'
 
 type IconProps = { className?: string }
 
@@ -97,9 +98,20 @@ const tabs = [
   { to: '/app/more', label: 'Mere', icon: MoreIcon },
 ]
 
+function TabBadge({ count }: { count: number }) {
+  if (count <= 0) return null
+  const label = count > 99 ? '99+' : String(count)
+  return (
+    <span className="absolute -right-2.5 -top-1.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-rose-600 px-0.5 text-[9px] font-bold leading-none text-white shadow-sm">
+      {label}
+    </span>
+  )
+}
+
 export function MobileBottomNav() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const navigate = useNavigate()
+  const { unreadCount } = useSupportUnread()
 
   function go(path: string) {
     setSheetOpen(false)
@@ -118,7 +130,13 @@ export function MobileBottomNav() {
           ))}
           <div className="flex w-16 shrink-0 items-center justify-center" />
           {tabs.slice(2).map((t) => (
-            <TabLink key={t.to} to={t.to} label={t.label} Icon={t.icon} />
+            <TabLink
+              key={t.to}
+              to={t.to}
+              label={t.label}
+              Icon={t.icon}
+              badgeCount={t.to === '/app/more' ? unreadCount : undefined}
+            />
           ))}
         </nav>
 
@@ -188,10 +206,12 @@ function TabLink({
   to,
   label,
   Icon,
+  badgeCount,
 }: {
   to: string
   label: string
   Icon: (p: IconProps) => ReactElement
+  badgeCount?: number
 }) {
   return (
     <NavLink
@@ -203,7 +223,10 @@ function TabLink({
         )
       }
     >
-      <Icon className="h-5 w-5" />
+      <span className="relative inline-flex">
+        <Icon className="h-5 w-5" />
+        {badgeCount != null ? <TabBadge count={badgeCount} /> : null}
+      </span>
       <span>{label}</span>
     </NavLink>
   )

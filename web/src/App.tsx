@@ -42,6 +42,7 @@ import { PlatformEmailTemplateSectionPage } from '@/pages/platform/PlatformEmail
 import { PlatformStaffPage } from '@/pages/platform/PlatformStaffPage'
 import { PlatformSeoPage } from '@/pages/platform/PlatformSeoPage'
 import { CookieConsentBanner } from '@/components/CookieConsentBanner'
+import { SupportUnreadProvider } from '@/context/SupportUnreadContext'
 
 function MissingConfigPage() {
   return (
@@ -137,7 +138,13 @@ export default function App() {
             </Route>
             <Route path="/home" element={<HomeRedirect />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route element={<AppShell />}>
+            <Route
+              element={
+                <SupportUnreadProvider>
+                  <AppShell />
+                </SupportUnreadProvider>
+              }
+            >
               <Route path="/app/dashboard" element={<DashboardPage />} />
               <Route path="/app/settings" element={<SettingsLayout />}>
                 <Route

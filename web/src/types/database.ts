@@ -507,6 +507,43 @@ export interface Database {
         }
         Update: never
       }
+      support_ticket_reads: {
+        Row: {
+          user_id: string
+          company_id: string
+          last_read_at: string
+        }
+        Insert: {
+          user_id: string
+          company_id: string
+          last_read_at?: string
+        }
+        Update: {
+          last_read_at?: string
+        }
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          endpoint: string
+          subscription: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          endpoint: string
+          subscription: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          subscription?: Json
+          updated_at?: string
+        }
+      }
     }
     Functions: {
       next_invoice_number: { Args: { p_company_id: string }; Returns: string }
@@ -542,6 +579,8 @@ export interface Database {
       }
       get_my_platform_role: { Args: Record<string, never>; Returns: string | null }
       ensure_platform_smtp_profiles: { Args: Record<string, never>; Returns: undefined }
+      support_unread_staff_count: { Args: { p_company_id: string }; Returns: number }
+      support_mark_ticket_read: { Args: { p_company_id: string }; Returns: undefined }
     }
   }
 }

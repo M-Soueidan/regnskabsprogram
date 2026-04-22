@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useApp } from '@/context/AppProvider'
+import { useSupportUnread } from '@/context/SupportUnreadContext'
 import { formatDateTime } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database'
@@ -10,6 +11,7 @@ type Ticket = Database['public']['Tables']['support_tickets']['Row']
 
 export function SupportPage() {
   const { currentCompany, user } = useApp()
+  const { refresh: refreshUnread } = useSupportUnread()
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [body, setBody] = useState('')
@@ -59,13 +61,16 @@ export function SupportPage() {
       .select('*')
       .eq('ticket_id', ticketRow.id)
       .order('created_at', { ascending: true })
-    setLoading(false)
     if (mErr) {
       setError(mErr.message)
+      setLoading(false)
       return
     }
     setMessages(msgs ?? [])
-  }, [])
+    await supabase.rpc('support_mark_ticket_read', { p_company_id: companyId })
+    void refreshUnread()
+    setLoading(false)
+  }, [refreshUnread])
 
   useEffect(() => {
     if (!currentCompany) return

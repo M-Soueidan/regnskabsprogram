@@ -7,6 +7,8 @@ import { logoutToLanding } from '@/lib/logoutToLanding'
 import { supabase } from '@/lib/supabase'
 import { BrandMark } from '@/components/BrandMark'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
+import { RegisterPushNotifications } from '@/components/RegisterPushNotifications'
+import { useSupportUnread } from '@/context/SupportUnreadContext'
 
 type NavIconProps = { className?: string }
 
@@ -98,7 +100,18 @@ function CogIcon({ className }: NavIconProps) {
   )
 }
 
+function NavBadge({ count }: { count: number }) {
+  if (count <= 0) return null
+  const label = count > 99 ? '99+' : String(count)
+  return (
+    <span className="absolute -right-2 -top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-600 px-0.5 text-[10px] font-bold leading-none text-white shadow-sm">
+      {label}
+    </span>
+  )
+}
+
 export function AppShell({ children }: { children?: ReactNode }) {
+  const { unreadCount } = useSupportUnread()
   const {
     user,
     companies,
@@ -128,6 +141,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-slate-50">
+      <RegisterPushNotifications />
       <aside className="hidden w-56 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
         <div className="border-b border-slate-100 px-4 py-5">
           <div className="flex items-center gap-3">
@@ -156,7 +170,10 @@ export function AppShell({ children }: { children?: ReactNode }) {
                 )
               }
             >
-              <item.icon className="h-4 w-4" />
+              <span className="relative inline-flex shrink-0">
+                <item.icon className="h-4 w-4" />
+                {item.to === '/app/support' ? <NavBadge count={unreadCount} /> : null}
+              </span>
               {item.label}
             </NavLink>
           ))}

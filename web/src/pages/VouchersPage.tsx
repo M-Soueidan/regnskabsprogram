@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { DesktopListCardsToggle } from '@/components/DesktopListCardsToggle'
+import { useDesktopListViewPreference } from '@/hooks/useDesktopListViewPreference'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
 import { logActivity } from '@/lib/activity'
@@ -26,8 +28,11 @@ type VoucherDraft = {
   vatRate: string
 }
 
+const VOUCHERS_VIEW_KEY = 'hisab:vouchersDesktopView'
+
 export function VouchersPage() {
   const { currentCompany, user } = useApp()
+  const [desktopView, setDesktopView] = useDesktopListViewPreference(VOUCHERS_VIEW_KEY, 'list')
   const [rows, setRows] = useState<Voucher[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -417,7 +422,64 @@ export function VouchersPage() {
         {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-end justify-between gap-3 pt-1">
+        <h2 className="text-base font-semibold text-slate-900">Dine bilag</h2>
+        <DesktopListCardsToggle mode={desktopView} onChange={setDesktopView} />
+      </div>
+
+      <div
+        className={`grid grid-cols-1 gap-3 ${desktopView === 'list' ? 'md:hidden' : 'md:grid-cols-2 lg:grid-cols-3'}`}
+      >
+        {loading ? (
+          <p className="col-span-full rounded-2xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-500 shadow-sm">
+            Indlæser…
+          </p>
+        ) : rows.length === 0 ? (
+          <p className="col-span-full rounded-2xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-500 shadow-sm">
+            Ingen bilag endnu.
+          </p>
+        ) : (
+          rows.map((v) => {
+            const dateStr = v.expense_date
+              ? formatDateOnly(v.expense_date)
+              : formatDateOnly(v.uploaded_at)
+            return (
+              <div
+                key={v.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => void openSigned(v)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    void openSigned(v)
+                  }
+                }}
+                className="flex cursor-pointer flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    {dateStr}
+                  </span>
+                  <span className="text-sm font-semibold text-slate-900">
+                    {v.gross_cents ? formatDkk(v.gross_cents) : '—'}
+                  </span>
+                </div>
+                <p className="line-clamp-2 text-sm font-medium text-slate-800">{v.title ?? '—'}</p>
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 text-xs text-slate-600">
+                  <span>{v.category ? `Kategori: ${v.category}` : '—'}</span>
+                  <span>{v.vat_cents ? `Moms ${formatDkk(v.vat_cents)}` : 'Moms —'}</span>
+                </div>
+                <span className="text-sm font-medium text-indigo-600">Åbn bilag →</span>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      <div
+        className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ${desktopView === 'list' ? 'hidden md:block' : 'hidden'}`}
+      >
         <table className="min-w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
             <tr>

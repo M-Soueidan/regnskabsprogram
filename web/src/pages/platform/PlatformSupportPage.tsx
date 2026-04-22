@@ -96,6 +96,11 @@ export function PlatformSupportPage() {
     await loadMessages(selectedId)
     await loadTickets()
     setSending(false)
+    void supabase.functions
+      .invoke('support-push-notify', { body: { ticket_id: selectedId } })
+      .then(({ error }) => {
+        if (error) console.warn('[support-push-notify]', error.message)
+      })
   }
 
   async function setStatus(status: Ticket['status']) {
