@@ -1,7 +1,5 @@
-import {
-  type MarketingShowcaseVariant,
-  MarketingShowcaseBody,
-} from '@/components/MarketingPageMockups'
+import { MarketingProductVisual } from '@/components/MarketingProductVisual'
+import type { MarketingShowcaseVariant } from '@/components/MarketingPageMockups'
 
 type MarketingDashboardShowcaseProps = {
   /** Hvilken unik produkt-mockup der vises (samme stil som forsiden, andet indhold) */
@@ -10,13 +8,6 @@ type MarketingDashboardShowcaseProps = {
   title?: string
   subtitle?: string
   className?: string
-}
-
-const footnote: Record<MarketingShowcaseVariant, string> = {
-  features: 'Illustration: CVR-opslag og bank-linjer — stil som i Bilago.',
-  pricing: 'Illustration: browser-vindue som forsiden — priser og datoer er eksempler.',
-  faq: 'Illustration: hjælp i samme kort-stil som forsiden — svar findes i listen nedenfor.',
-  support: 'Illustration: support-tråd i samme stil som produktets kort og farver.',
 }
 
 /**
@@ -47,14 +38,13 @@ export function MarketingDashboardShowcase({
           </h2>
           <p className="mt-3 text-base text-slate-600 sm:text-lg">{subtitle}</p>
         </div>
-        <div
-          className="mt-10"
-          role="img"
-          aria-label={footnote[variant].replace('Illustration: ', '')}
-        >
-          <MarketingShowcaseBody variant={variant} />
+        <div className="mt-10">
+          <MarketingProductVisual
+            variant={variant}
+            withFootnoteLine
+            footnoteClassName="mt-6 text-center text-xs text-slate-400"
+          />
         </div>
-        <p className="mt-6 text-center text-xs text-slate-400">{footnote[variant]}</p>
       </div>
     </section>
   )

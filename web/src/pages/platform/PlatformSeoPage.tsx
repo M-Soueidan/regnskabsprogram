@@ -114,7 +114,9 @@ export function PlatformSeoPage() {
       setError(uErr.message)
       return
     }
-    setMessage('SEO gemt. Forsiden opdaterer meta-tags næste gang den indlæses.')
+    setMessage(
+      'SEO gemt. Efter næste Netlify-deploy bruger forhåndsvisning (Facebook, WhatsApp, m.fl.) de gemte værdier; i browseren opdateres <head> ved indlæsning som før.',
+    )
     await load()
   }
 

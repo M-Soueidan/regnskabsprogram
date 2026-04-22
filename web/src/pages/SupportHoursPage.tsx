@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { MarketingDashboardShowcase } from '@/components/MarketingDashboardShowcase'
+import { MarketingProductVisual } from '@/components/MarketingProductVisual'
+import { MarketingSplitSection } from '@/components/MarketingSplitSection'
 import { MarketingFooter } from '@/components/MarketingFooter'
 import { MarketingHeader } from '@/components/MarketingHeader'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
@@ -34,31 +35,43 @@ export function SupportHoursPage() {
     <div className="flex min-h-screen flex-col bg-white text-slate-900">
       <MarketingHeader />
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 pb-16 pt-12 sm:pt-16">
-        <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
-            Kundeservice
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-            Support og åbningstider
-          </h1>
-          <p className="mt-4 text-base leading-relaxed text-slate-600">
-            Her finder du vores telefontider og direkte kontaktoplysninger. Svartid på e-mail
-            afhænger af henvendelsens omfang; vi bestræber os på at svare inden for
-            åbningstiderne.
-          </p>
-        </div>
-
-        <MarketingDashboardShowcase
-          variant="support"
-          className="mt-8"
-          kicker="Bilago i brug"
-          title="Support i produktet"
-          subtitle="Eksempel på tråd i samme stil som forsiden — rigtige sager når du er logget ind."
+      <main className="mx-auto w-full max-w-6xl flex-1 px-0 pb-16 sm:px-0">
+        <MarketingSplitSection
+          withHeroGradient
+          withMarketingSurface={false}
+          left={
+            <div className="space-y-8">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
+                  Kundeservice
+                </p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+                  Support og åbningstider
+                </h1>
+                <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-600">
+                  Her finder du vores telefontider og direkte kontaktoplysninger. Svartid på e-mail
+                  afhænger af henvendelsens omfang; vi bestræber os på at svare inden for
+                  åbningstiderne.
+                </p>
+              </div>
+              <div className="border-t border-slate-200/80 pt-8">
+                <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
+                  I produktet
+                </p>
+                <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+                  Dansk support i tråd
+                </h2>
+                <p className="mt-2 max-w-xl text-base text-slate-600">
+                  Sådan ser en typisk support-samtale ud for kunder, der allerede bruger Bilago.
+                </p>
+              </div>
+            </div>
+          }
+          right={<MarketingProductVisual variant="support" />}
         />
 
         {loading ? (
-          <div className="mt-12 flex items-center gap-3 text-sm text-slate-500">
+          <div className="mt-12 flex items-center gap-3 px-5 text-sm text-slate-500 sm:px-6">
             <span
               className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600"
               aria-hidden
@@ -66,7 +79,7 @@ export function SupportHoursPage() {
             Indlæser oplysninger…
           </div>
         ) : (
-          <div className="mt-12 grid gap-6 lg:grid-cols-2 lg:items-stretch">
+          <div className="mt-12 grid gap-6 px-5 sm:px-6 lg:grid-cols-2 lg:items-stretch">
             <article className="flex flex-col rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm shadow-slate-200/50 sm:p-8">
               <div className="flex items-start gap-4">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { MarketingDashboardShowcase } from '@/components/MarketingDashboardShowcase'
+import { MarketingProductVisual } from '@/components/MarketingProductVisual'
 import { MarketingShell } from '@/components/MarketingShell'
+import { MarketingSplitSection } from '@/components/MarketingSplitSection'
 import { CheckIcon } from '@/marketing/MarketingIcons'
 import { marketingFeatureCards } from '@/marketing/featureCards'
 import { marketingTestimonials } from '@/marketing/marketingData'
@@ -17,44 +18,52 @@ const audiences = [
 export function FeaturesPage() {
   return (
     <MarketingShell pageTitle="Funktioner">
-      <section className="relative overflow-hidden border-b border-slate-100">
-        <div
-          className="absolute inset-0 -z-10 bg-gradient-to-b from-indigo-50 via-white to-white"
-          aria-hidden
-        />
-        <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
-          <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
-            Alt-i-et regnskab
-          </p>
-          <h1 className="mt-3 max-w-3xl text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-            Professionelt regnskab — uden at det føles tungt
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg text-slate-600">
-            Bilago samler fakturaer, bilag, bank og moms ét sted. Bygget til danske virksomheder,
-            så du kan bruge tiden på kunderne — ikke på regneark.
-          </p>
-          <div className="mt-10 flex flex-wrap gap-3">
-            <Link
-              to="/signup"
-              className="rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
-            >
-              Prøv gratis i 30 dage
-            </Link>
-            <Link
-              to="/priser"
-              className="rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-            >
-              Se priser
-            </Link>
+      <MarketingSplitSection
+        withHeroGradient
+        withMarketingSurface={false}
+        left={
+          <div className="space-y-8">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
+                Alt-i-et regnskab
+              </p>
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
+                Professionelt regnskab — uden at det føles tungt
+              </h1>
+              <p className="mt-5 max-w-xl text-lg text-slate-600">
+                Bilago samler fakturaer, bilag, bank og moms ét sted. Bygget til danske virksomheder,
+                så du kan bruge tiden på kunderne — ikke på regneark.
+              </p>
+              <div className="mt-10 flex flex-wrap gap-3">
+                <Link
+                  to="/signup"
+                  className="rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+                >
+                  Prøv gratis i 30 dage
+                </Link>
+                <Link
+                  to="/priser"
+                  className="rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                >
+                  Se priser
+                </Link>
+              </div>
+            </div>
+            <div className="border-t border-slate-200/80 pt-8">
+              <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
+                I produktet
+              </p>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+                CVR, bank og hverdagsopgaver
+              </h2>
+              <p className="mt-2 max-w-xl text-base text-slate-600">
+                Samme kort- og tabel-look som forsiden: opslag, linjer og status, du møder i
+                kundeappen.
+              </p>
+            </div>
           </div>
-        </div>
-      </section>
-
-      <MarketingDashboardShowcase
-        variant="features"
-        kicker="Indblik i produktet"
-        title="Værktøjer du bruger hver dag"
-        subtitle="CVR på kunder og tydelige bank-linjer — bygget i samme visuelle sprog som forsiden."
+        }
+        right={<MarketingProductVisual variant="features" />}
       />
 
       <section className="border-b border-slate-100 bg-slate-50">

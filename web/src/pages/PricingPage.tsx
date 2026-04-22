@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
-import { MarketingDashboardShowcase } from '@/components/MarketingDashboardShowcase'
+import { MarketingProductVisual } from '@/components/MarketingProductVisual'
 import { MarketingPricingSection } from '@/components/MarketingPricingSection'
 import { MarketingShell, useMarketingPublicSettings } from '@/components/MarketingShell'
+import { MarketingSplitSection } from '@/components/MarketingSplitSection'
 import { CheckIcon } from '@/marketing/MarketingIcons'
 
 const included = [
@@ -19,37 +20,45 @@ function PricingContent() {
 
   return (
     <>
-      <section className="relative overflow-hidden border-b border-slate-100">
-        <div
-          className="absolute inset-0 -z-10 bg-gradient-to-b from-indigo-50 via-white to-white"
-          aria-hidden
-        />
-        <div className="mx-auto max-w-6xl px-6 py-16 sm:py-20">
-          <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
-            Gennemsigtige priser
-          </p>
-          <h1 className="mt-3 max-w-3xl text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-            Ét abonnement — ingen skjulte gebyrer
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg text-slate-600">
-            Du betaler kun for Bilago. Ingen ekstra moduler for faktura, bilag eller bank — det
-            hele følger med, så du ved hvad det koster.
-          </p>
-        </div>
-      </section>
-
-      <MarketingDashboardShowcase
-        variant="pricing"
-        kicker="Hvad du betaler for"
-        title="Abonnement i produktet"
-        subtitle="Samme kort-stil som forsiden — eksempel på kampagnepris og næste korttræk (fiktive datoer)."
+      <MarketingSplitSection
+        withHeroGradient
+        withMarketingSurface={false}
+        left={
+          <div className="space-y-8">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
+                Gennemsigtige priser
+              </p>
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
+                Ét abonnement — ingen skjulte gebyrer
+              </h1>
+              <p className="mt-5 max-w-xl text-lg text-slate-600">
+                Du betaler kun for Bilago. Ingen ekstra moduler for faktura, bilag eller bank — det
+                hele følger med, så du ved hvad det koster.
+              </p>
+            </div>
+            <div className="border-t border-slate-200/80 pt-8">
+              <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
+                I produktet
+              </p>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+                Abonnement, som kunder møder efter tilmelding
+              </h2>
+              <p className="mt-2 max-w-xl text-base text-slate-600">
+                Samme kort-stil som forsiden — eksempel på kampagnepris og næste korttræk (fiktive
+                datoer).
+              </p>
+            </div>
+          </div>
+        }
+        right={<MarketingProductVisual variant="pricing" />}
       />
 
       <section className="bg-slate-50">
         <MarketingPricingSection pub={pub} />
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 py-16 sm:py-20">
+      <section className="mx-auto max-w-6xl px-5 py-16 sm:px-6 sm:py-20">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
             Inkluderet i dit abonnement
@@ -58,7 +67,7 @@ function PricingContent() {
             Ligesom du kender det fra andre danske løsninger — samlet værdi uden tillægsmoduler.
           </p>
         </div>
-        <div className="mx-auto mt-10 max-w-lg rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="mx-auto mt-10 max-w-2xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm sm:p-10">
           <ul className="space-y-4 text-sm text-slate-700">
             {included.map((line) => (
               <li key={line} className="flex items-start gap-3">

@@ -12,9 +12,9 @@
     <meta name="apple-mobile-web-app-title" content="Bilago" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="apple-touch-icon" href="/pwa-180.png" sizes="180x180" />
-    <!-- SEO/OG: crawlers (WhatsApp, Facebook, LinkedIn) læser KUN denne fil — ikke JS.
-         Hold tekster synkron med src/lib/landingSeo.ts DEFAULT_LANDING_SEO ved større ændringer.
-         Besøgende på forsiden får stadig dynamisk SEO fra platform efter indlæsning. -->
+    <!-- SEO/OG: I produktion erstatter Netlify Edge `landing_seo` her (se netlify/edge-functions),
+         så link-forhåndsvisning ser uploadet billede uden at køre JavaScript. Standarder nedenfor
+         er fallback. Hold synk med src/lib/landingSeo.ts DEFAULT_LANDING_SEO ved større ændringer. -->
     <title>Bilago — dansk regnskab for SMB</title>
     <meta
       name="description"
