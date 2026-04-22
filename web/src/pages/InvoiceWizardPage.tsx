@@ -725,9 +725,13 @@ export function InvoiceWizardPage() {
         const numStr = String(inv.invoice_number ?? '').trim()
         setInvoiceNumber(numStr)
         setStatus(st)
-        setTab('overblik')
         clearInvoiceWizardDraft(currentCompany.id)
-        navigate(`/app/invoices/${inv.id}`, { replace: true })
+        if (st === 'sent') {
+          navigate('/app/invoices', { replace: true })
+        } else {
+          setTab('overblik')
+          navigate(`/app/invoices/${inv.id}`, { replace: true })
+        }
       } else {
         const { error: uErr } = await supabase
           .from('invoices')
@@ -778,6 +782,9 @@ export function InvoiceWizardPage() {
             companyId: currentCompany.id,
             invoiceId,
           }).catch(() => {})
+        }
+        if (st === 'sent') {
+          navigate('/app/invoices', { replace: true })
         }
       }
       setStatus(st)

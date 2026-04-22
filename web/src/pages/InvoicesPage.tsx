@@ -9,6 +9,46 @@ import type { Database } from '@/types/database'
 
 type Invoice = Database['public']['Tables']['invoices']['Row']
 
+function isCreditNote(inv: Invoice) {
+  return inv.credited_invoice_id != null || inv.gross_cents < 0
+}
+
+/** Kreditnotaer ligger lige under den faktura de peger på (`credited_invoice_id`). */
+function orderInvoicesForDisplay(list: Invoice[]): Invoice[] {
+  if (list.length === 0) return list
+  const creditsByParent = new Map<string, Invoice[]>()
+  for (const inv of list) {
+    const pid = inv.credited_invoice_id
+    if (!pid) continue
+    const arr = creditsByParent.get(pid) ?? []
+    arr.push(inv)
+    creditsByParent.set(pid, arr)
+  }
+  const sortDesc = (a: Invoice, b: Invoice) => {
+    const d = String(b.issue_date).localeCompare(String(a.issue_date))
+    if (d !== 0) return d
+    return String(b.invoice_number).localeCompare(String(a.invoice_number), undefined, {
+      numeric: true,
+    })
+  }
+  const roots = list.filter((i) => !i.credited_invoice_id)
+  roots.sort(sortDesc)
+  const out: Invoice[] = []
+  const emitted = new Set<string>()
+  for (const root of roots) {
+    out.push(root)
+    const kids = (creditsByParent.get(root.id) ?? []).sort(sortDesc)
+    for (const k of kids) {
+      out.push(k)
+      emitted.add(k.id)
+    }
+  }
+  const orphans = list.filter((i) => i.credited_invoice_id && !emitted.has(i.id))
+  orphans.sort(sortDesc)
+  out.push(...orphans)
+  return out
+}
+
 const statusDa: Record<Invoice['status'], string> = {
   draft: 'Kladde',
   sent: 'Sendt',
@@ -28,22 +68,25 @@ export function InvoicesPage() {
 
   const filteredRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return rows
     const tokens = q.split(/\s+/).filter(Boolean)
-    return rows.filter((inv) => {
-      const hay = [
-        inv.invoice_number,
-        inv.customer_name,
-        inv.customer_email ?? '',
-        statusDa[inv.status],
-        inv.issue_date,
-        inv.notes ?? '',
-        formatDkk(inv.gross_cents, inv.currency),
-      ]
-        .join(' ')
-        .toLowerCase()
-      return tokens.every((t) => hay.includes(t))
-    })
+    const matched =
+      tokens.length === 0
+        ? rows
+        : rows.filter((inv) => {
+            const hay = [
+              inv.invoice_number,
+              inv.customer_name,
+              inv.customer_email ?? '',
+              statusDa[inv.status],
+              inv.issue_date,
+              inv.notes ?? '',
+              formatDkk(inv.gross_cents, inv.currency),
+            ]
+              .join(' ')
+              .toLowerCase()
+            return tokens.every((t) => hay.includes(t))
+          })
+    return orderInvoicesForDisplay(matched)
   }, [rows, searchQuery])
 
   useEffect(() => {
@@ -117,30 +160,51 @@ export function InvoicesPage() {
             Ingen fakturaer matcher søgningen.
           </p>
         ) : (
-          filteredRows.map((inv) => (
-            <button
-              key={inv.id}
-              type="button"
-              onClick={() => openPdf(inv.id)}
-              className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="font-mono text-sm font-semibold text-indigo-700">
-                  {inv.invoice_number}
-                </span>
-                <span className="shrink-0 text-sm font-semibold text-slate-900">
-                  {formatDkk(inv.gross_cents, inv.currency)}
-                </span>
-              </div>
-              <p className="line-clamp-2 text-sm font-medium text-slate-800">{inv.customer_name}</p>
-              <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
-                <span className="text-xs text-slate-600">{formatDate(inv.issue_date)}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                  {statusDa[inv.status]}
-                </span>
-              </div>
-            </button>
-          ))
+          filteredRows.map((inv) => {
+            const credit = isCreditNote(inv)
+            return (
+              <button
+                key={inv.id}
+                type="button"
+                onClick={() => openPdf(inv.id)}
+                className={
+                  credit
+                    ? 'flex flex-col gap-2 rounded-2xl border border-rose-200 border-l-[3px] border-l-rose-500 bg-rose-50/50 p-4 pl-3.5 text-left shadow-sm transition hover:border-rose-300 hover:bg-rose-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500'
+                    : 'flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500'
+                }
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span
+                    className={`font-mono text-sm font-semibold ${credit ? 'text-rose-800' : 'text-indigo-700'}`}
+                  >
+                    {inv.invoice_number}
+                  </span>
+                  <span
+                    className={`shrink-0 text-sm font-semibold ${credit ? 'text-rose-800' : 'text-slate-900'}`}
+                  >
+                    {formatDkk(inv.gross_cents, inv.currency)}
+                  </span>
+                </div>
+                <p
+                  className={`line-clamp-2 text-sm font-medium ${credit ? 'text-rose-900/90' : 'text-slate-800'}`}
+                >
+                  {inv.customer_name}
+                </p>
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <span className={`text-xs ${credit ? 'text-rose-700/80' : 'text-slate-600'}`}>
+                    {formatDate(inv.issue_date)}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      credit ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {statusDa[inv.status]}
+                  </span>
+                </div>
+              </button>
+            )
+          })
         )}
       </div>
 
@@ -177,37 +241,54 @@ export function InvoicesPage() {
                 </td>
               </tr>
             ) : (
-              filteredRows.map((inv) => (
-                <tr
-                  key={inv.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openPdf(inv.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      openPdf(inv.id)
+              filteredRows.map((inv) => {
+                const credit = isCreditNote(inv)
+                return (
+                  <tr
+                    key={inv.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openPdf(inv.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        openPdf(inv.id)
+                      }
+                    }}
+                    className={
+                      credit
+                        ? 'cursor-pointer border-t border-rose-100 bg-rose-50/40 transition hover:bg-rose-50/70 focus-visible:bg-rose-50/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-rose-500'
+                        : 'cursor-pointer border-t border-slate-100 transition hover:bg-indigo-50/50 focus-visible:bg-indigo-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-indigo-500'
                     }
-                  }}
-                  className="cursor-pointer border-t border-slate-100 transition hover:bg-indigo-50/50 focus-visible:bg-indigo-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-indigo-500"
-                >
-                  <td className="px-4 py-3 font-mono text-indigo-700">
-                    {inv.invoice_number}
-                  </td>
-                  <td className="px-4 py-3 text-slate-800">{inv.customer_name}</td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {formatDate(inv.issue_date)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                      {statusDa[inv.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium text-slate-900">
-                    {formatDkk(inv.gross_cents, inv.currency)}
-                  </td>
-                </tr>
-              ))
+                  >
+                    <td
+                      className={`border-l-[3px] border-l-rose-500 py-3 pl-3 pr-4 font-mono ${credit ? 'text-rose-800' : 'border-l-transparent text-indigo-700'}`}
+                    >
+                      {inv.invoice_number}
+                    </td>
+                    <td className={`px-4 py-3 ${credit ? 'text-rose-900/90' : 'text-slate-800'}`}>
+                      {inv.customer_name}
+                    </td>
+                    <td className={`px-4 py-3 ${credit ? 'text-rose-800/80' : 'text-slate-600'}`}>
+                      {formatDate(inv.issue_date)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          credit ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {statusDa[inv.status]}
+                      </span>
+                    </td>
+                    <td
+                      className={`px-4 py-3 text-right font-medium ${credit ? 'text-rose-800' : 'text-slate-900'}`}
+                    >
+                      {formatDkk(inv.gross_cents, inv.currency)}
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
