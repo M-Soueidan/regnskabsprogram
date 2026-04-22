@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { CheckIcon, SearchIcon } from '@/marketing/MarketingIcons'
+import { MarketingAppPhoneFrame } from '@/components/MarketingAppPhoneMockup'
 
 function MockWindow({
   url,
@@ -71,136 +71,29 @@ export function MarketingFeaturesMockup() {
   )
 }
 
-/** Priser: abonnement + betalingshistorik */
+/** Priser: mobil med abonnement (andre tal end reference) */
 export function MarketingPricingMockup() {
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <MockWindow url="bilago.dk/app/abonnement">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Nuværende plan</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">Bilago</p>
-            <p className="text-sm text-slate-600">Faktura, bilag og bank inkluderet</p>
-          </div>
-          <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-            Aktiv
-          </span>
-        </div>
-        <div className="mt-5 rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm text-slate-600">Pris</span>
-            <span className="text-2xl font-semibold text-slate-900">99 kr.</span>
-          </div>
-          <p className="mt-0.5 text-right text-xs text-slate-500">pr. måned · ekskl. moms</p>
-          <div className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-600">
-            Næste trækning: <span className="font-medium text-slate-800">1. juni 2026</span>
-          </div>
-        </div>
-      </MockWindow>
-      <MockWindow url="bilago.dk/app/betalinger">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Seneste betalinger</p>
-        <ul className="mt-3 divide-y divide-slate-100 text-sm">
-          {[
-            { d: '1. maj 2026', x: 'Faktura · abonnement', v: '99,00 kr.' },
-            { d: '1. apr. 2026', x: 'Faktura · abonnement', v: '99,00 kr.' },
-            { d: '1. mar. 2026', x: 'Faktura · abonnement', v: '99,00 kr.' },
-          ].map((r) => (
-            <li key={r.d} className="flex items-center justify-between py-2.5 first:pt-0">
-              <div>
-                <div className="font-medium text-slate-900">{r.d}</div>
-                <div className="text-xs text-slate-500">{r.x}</div>
-              </div>
-              <span className="font-medium text-slate-800">{r.v}</span>
-            </li>
-          ))}
-        </ul>
-      </MockWindow>
+    <div className="flex justify-center">
+      <MarketingAppPhoneFrame variant="pricing" />
     </div>
   )
 }
 
-/** FAQ: søgning + kategorier (andet layout end rigtig FAQ-liste nedenfor) */
+/** FAQ: Hjælp i mobilen */
 export function MarketingFaqMockup() {
-  const cats = [
-    'Pris & betaling',
-    'Bogføringsloven',
-    'Skift fra andet system',
-    'Konto & brugere',
-  ]
   return (
-    <MockWindow url="bilago.dk/faq" className="max-w-3xl lg:max-w-none">
-      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
-        <SearchIcon className="h-4 w-4 shrink-0 text-slate-400" />
-        <span>Søg efter binding, moms, EAN…</span>
-      </div>
-      <p className="mt-5 text-xs font-medium uppercase tracking-wide text-slate-500">Ofte stillede emner</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {cats.map((c) => (
-          <span
-            key={c}
-            className="rounded-lg border border-indigo-100 bg-indigo-50/80 px-3 py-1.5 text-xs font-medium text-indigo-900"
-          >
-            {c}
-          </span>
-        ))}
-      </div>
-      <div className="mt-5 rounded-xl border border-slate-100 p-4">
-        <p className="text-xs text-slate-500">Forhåndsvisning</p>
-        <p className="mt-1 text-sm font-semibold text-slate-900">Kan jeg opsige når som helst?</p>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">
-          Ja — der er ingen binding. Du beholder adgang inden for den betalte periode.
-        </p>
-      </div>
-    </MockWindow>
+    <div className="flex justify-center">
+      <MarketingAppPhoneFrame variant="faq" />
+    </div>
   )
 }
 
-/** Support: chat-tråd i appen */
+/** Support: support-tråd i mobilen */
 export function MarketingSupportMockup() {
   return (
-    <div className="grid gap-6 lg:grid-cols-5 lg:items-end">
-      <div className="lg:col-span-3">
-        <MockWindow url="bilago.dk/app/support">
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
-                B
-              </span>
-              <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-800">
-                Hej! Vi har modtaget din fakturaspørgsmål. Her er et link til moms-guiden i hjælpen.
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-indigo-600 px-3 py-2 text-sm text-white">
-                Tak — kan I også bekræfte forfaldsdato på kladden?
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
-                B
-              </span>
-              <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-800">
-                Ja. Åbn fakturaen, og ret forfaldsdatoen før du sender — så står den rigtigt på
-                fakturaen.
-              </div>
-            </div>
-          </div>
-          <p className="mt-4 text-center text-[11px] text-slate-400">
-            Dansk support — typisk svar inden for åbningstid
-          </p>
-        </MockWindow>
-      </div>
-      <div className="relative rounded-2xl border border-slate-200 bg-white p-4 shadow-lg lg:col-span-2">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-            <CheckIcon className="h-5 w-5" />
-          </span>
-          <div>
-            <div className="text-sm font-semibold text-slate-900">Besked læst</div>
-            <div className="text-xs text-slate-500">Du får mail ved nyt svar</div>
-          </div>
-        </div>
-      </div>
+    <div className="flex justify-center">
+      <MarketingAppPhoneFrame variant="support" />
     </div>
   )
 }

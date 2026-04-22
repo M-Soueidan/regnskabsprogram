@@ -41,8 +41,8 @@ function PricingContent() {
       <MarketingDashboardShowcase
         variant="pricing"
         kicker="Hvad du betaler for"
-        title="Abonnement og betalinger i ét overblik"
-        subtitle="Se aktiv plan, pris pr. måned og historik — præcis den type skærm du møder efter oprettelse."
+        title="Abonnement i mobilen"
+        subtitle="Samme pris og prøveperiode som på web — her med eksempel på kampagnepris og næste korttræk (fiktive datoer)."
       />
 
       <section className="bg-slate-50">

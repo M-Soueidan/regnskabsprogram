@@ -28,8 +28,8 @@ export function FaqPage() {
       <MarketingDashboardShowcase
         variant="faq"
         kicker="Hjælp i produktet"
-        title="Find svar som i appen"
-        subtitle="Søgning og emner — så du ved hvordan det føles at lede efter svar, før du læser listen nedenfor."
+        title="Hjælp på telefonen"
+        subtitle="Søg og gennemse emner i appen — nedenfor er de fulde tekstsvar på websitet."
       />
 
       <section className="mx-auto max-w-3xl px-6 py-16 sm:py-20">
