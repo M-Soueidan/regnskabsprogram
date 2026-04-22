@@ -39,7 +39,16 @@ export function LandingPage() {
     return applyLandingSeoToDocument(seo)
   }, [pub])
 
-  if (!loading && session && !showMarketingWhileLoggedIn) {
+  /* Undgå marketing-forside mens auth indlæses (PWA/«tilføj til hjemmeskærm» + logget ind = ellers 1–2 sek flash). */
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white text-slate-500">
+        Indlæser…
+      </div>
+    )
+  }
+
+  if (session && !showMarketingWhileLoggedIn) {
     return <Navigate to="/home" replace />
   }
 
