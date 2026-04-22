@@ -1,6 +1,6 @@
 /**
- * Genererer favicon-32 + PWA-ikoner fra masterfilen public/brand-icon-source.png.
- * Kræver: npm install sharp (devDependency). Kør ved build (prebuild).
+ * Genererer favicon-32 + PWA-ikoner fra masterfilen public/brand-icon-source.png
+ * (Bilago kvadrat-ikon m. lilla squircle). Kræver: sharp (dev). Kører ved prebuild.
  * Opdater master ved at erstatte brand-icon-source.png (kvadratisk, helst 1024×1024).
  */
 import fs from 'node:fs'

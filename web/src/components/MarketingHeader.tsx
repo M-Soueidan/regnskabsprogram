@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { BrandMark } from '@/components/BrandMark'
+import { BrandLogo } from '@/components/BrandLogo'
 
 function navClass(active: boolean) {
   return active ? 'font-medium text-slate-900' : 'text-slate-600 hover:text-slate-900'
@@ -11,9 +11,8 @@ export function MarketingHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link to="/" className="flex items-center gap-2">
-          <BrandMark size="sm" />
-          <span className="text-lg font-semibold">Bilago</span>
+        <Link to="/" className="flex min-w-0 items-center">
+          <BrandLogo variant="header" />
         </Link>
         <nav className="hidden items-center gap-8 text-sm md:flex">
           <Link to="/funktioner" className={navClass(pathname === '/funktioner')}>

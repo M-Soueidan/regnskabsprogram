@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 
-/** Bilago-appikon (fra `/public/app-icon-64.png`, genereret fra `brand-icon-source.png`). */
+/** Kvadratisk appikon til app-shell og login (fra `app-icon-64.png` ← `brand-icon-source.png`). */
 export function BrandMark({
   className,
   size = 'md',

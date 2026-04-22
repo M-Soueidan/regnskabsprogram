@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { BrandMark } from '@/components/BrandMark'
+import { BrandLogo } from '@/components/BrandLogo'
 import type { Database } from '@/types/database'
 
 type PublicSettings = Database['public']['Tables']['platform_public_settings']['Row']
@@ -9,11 +9,8 @@ export function MarketingFooter({ pub }: { pub: PublicSettings | null }) {
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto grid max-w-6xl gap-10 px-6 py-14 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <div className="flex items-center gap-2">
-            <BrandMark size="sm" />
-            <span className="text-lg font-semibold">Bilago</span>
-          </div>
-          <p className="mt-3 text-sm text-slate-600">Dansk regnskab, bygget enkelt.</p>
+          <BrandLogo variant="footer" />
+          <p className="mt-3 text-sm text-slate-600">CVR, moms, bilag og bank i ét sted — bygget i Danmark.</p>
         </div>
         <div>
           <div className="text-sm font-semibold text-slate-900">Produkt</div>
