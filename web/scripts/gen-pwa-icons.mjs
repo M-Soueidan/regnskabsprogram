@@ -1,7 +1,12 @@
 /**
  * Genererer favicon-32 + PWA-ikoner fra masterfilen public/brand-icon-source.png
  * (Bilago kvadrat-ikon m. lilla squircle). Kræver: sharp (dev). Kører ved prebuild.
- * Opdater master ved at erstatte brand-icon-source.png (kvadratisk, helst 1024×1024).
+ * Opdater master ved at erstatte brand-icon-source.png (kvadratisk, helst 1024×1024), og kør
+ *   node scripts/gen-pwa-icons.mjs
+ * så pwa-*.png / favicon opdateres. Efter deploy, tilføj PWA igen / ryd site-data for at se nyt ikon.
+ *
+ * Transparente kanter (typisk udenfor squircle) flades ud mod brand-lilla, så skalering
+ * og iOS-ikonmask ikke efterlader tydelig hvid/lys linje i kanten.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -27,6 +32,23 @@ async function main() {
     process.exit(0)
   }
 
+  const { data: srcBuf, info: srcInfo } = await sharp(src)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+  const w = srcInfo.width
+  const h = srcInfo.height
+  const ch = srcInfo.channels
+  const ySample = Math.min(h - 2, Math.floor(h * 0.88))
+  const xSample = Math.floor(w / 2)
+  const o = (ySample * w + xSample) * ch
+  const r = srcBuf[o]
+  const g = srcBuf[o + 1]
+  const b = srcBuf[o + 2]
+  const a = ch >= 4 ? srcBuf[o + 3] : 255
+  const brandSquircleBackground =
+    a < 8 ? { r: 58, g: 46, b: 188 } : { r, g, b }
+
   const sizes = {
     'favicon-32.png': 32,
     'pwa-180.png': 180,
@@ -37,6 +59,8 @@ async function main() {
 
   for (const [name, size] of Object.entries(sizes)) {
     await sharp(src)
+      .ensureAlpha()
+      .flatten({ background: brandSquircleBackground })
       .resize(size, size, { fit: 'cover', position: 'centre' })
       .png()
       .toFile(path.join(publicDir, name))

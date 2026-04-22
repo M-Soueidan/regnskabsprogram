@@ -9,6 +9,42 @@ import type { Database } from '@/types/database'
 type Message = Database['public']['Tables']['support_messages']['Row']
 type Ticket = Database['public']['Tables']['support_tickets']['Row']
 
+function customerTicketStatusLabel(status: string): string {
+  switch (status) {
+    case 'open':
+      return 'Åben'
+    case 'closed':
+      return 'Afsluttet'
+    case 'waiting_customer':
+      return 'Afventer dit svar'
+    default:
+      return status
+  }
+}
+
+function SupportMessageList({ messages }: { messages: Message[] }) {
+  return (
+    <ul className="space-y-4">
+      {messages.map((m) => (
+        <li
+          key={m.id}
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            m.is_staff
+              ? 'border-indigo-100 bg-indigo-50 text-slate-800'
+              : 'border-slate-200 bg-white text-slate-800 shadow-sm'
+          }`}
+        >
+          <div className="flex justify-between gap-2 text-xs text-slate-500">
+            <span>{m.is_staff ? 'Bilago' : 'Dig'}</span>
+            <span>{formatDateTime(m.created_at)}</span>
+          </div>
+          <p className="mt-2 whitespace-pre-wrap">{m.body}</p>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function SupportPage() {
   const { currentCompany, user } = useApp()
   const { refresh: refreshUnread } = useSupportUnread()
@@ -145,28 +181,29 @@ export function SupportPage() {
           {ticket ? (
             <p className="text-xs text-slate-500">
               Status:{' '}
-              <span className="font-medium text-slate-700">{ticket.status}</span>
+              <span className="font-medium text-slate-700">
+                {customerTicketStatusLabel(ticket.status)}
+              </span>
             </p>
           ) : null}
 
-          <ul className="space-y-4">
-            {messages.map((m) => (
-              <li
-                key={m.id}
-                className={`rounded-xl border px-4 py-3 text-sm ${
-                  m.is_staff
-                    ? 'border-indigo-100 bg-indigo-50 text-slate-800'
-                    : 'border-slate-200 bg-white text-slate-800 shadow-sm'
-                }`}
-              >
-                <div className="flex justify-between gap-2 text-xs text-slate-500">
-                  <span>{m.is_staff ? 'Bilago' : 'Dig'}</span>
-                  <span>{formatDateTime(m.created_at)}</span>
-                </div>
-                <p className="mt-2 whitespace-pre-wrap">{m.body}</p>
-              </li>
-            ))}
-          </ul>
+          {ticket?.status === 'closed' ? (
+            <details className="rounded-xl border border-slate-200 bg-slate-50/90">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-slate-800">
+                Vis tidligere beskeder
+                {messages.length > 0 ? (
+                  <span className="ml-1 font-normal text-slate-500">
+                    ({messages.length} {messages.length === 1 ? 'besked' : 'beskeder'})
+                  </span>
+                ) : null}
+              </summary>
+              <div className="border-t border-slate-200 px-2 pb-3 pt-1">
+                <SupportMessageList messages={messages} />
+              </div>
+            </details>
+          ) : (
+            <SupportMessageList messages={messages} />
+          )}
 
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <label className="text-xs font-medium text-slate-600">Ny besked</label>
