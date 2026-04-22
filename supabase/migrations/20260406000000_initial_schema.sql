@@ -3,7 +3,7 @@
 create extension if not exists "pgcrypto";
 
 -- Profiles (1:1 with auth.users)
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   full_name text,
   current_company_id uuid,
@@ -11,7 +11,7 @@ create table public.profiles (
   updated_at timestamptz not null default now()
 );
 
-create table public.companies (
+create table if not exists public.companies (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   cvr text,
@@ -20,11 +20,18 @@ create table public.companies (
   updated_at timestamptz not null default now()
 );
 
-alter table public.profiles
-  add constraint profiles_current_company_fk
-  foreign key (current_company_id) references public.companies (id) on delete set null;
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'profiles_current_company_fk'
+  ) then
+    alter table public.profiles
+      add constraint profiles_current_company_fk
+      foreign key (current_company_id) references public.companies (id) on delete set null;
+  end if;
+end $$;
 
-create table public.company_members (
+create table if not exists public.company_members (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -33,10 +40,10 @@ create table public.company_members (
   unique (company_id, user_id)
 );
 
-create index company_members_user_id_idx on public.company_members (user_id);
-create index company_members_company_id_idx on public.company_members (company_id);
+create index if not exists company_members_user_id_idx on public.company_members (user_id);
+create index if not exists company_members_company_id_idx on public.company_members (company_id);
 
-create table public.subscriptions (
+create table if not exists public.subscriptions (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null unique references public.companies (id) on delete cascade,
   stripe_customer_id text,
@@ -47,12 +54,12 @@ create table public.subscriptions (
   updated_at timestamptz not null default now()
 );
 
-create table public.invoice_number_seq (
+create table if not exists public.invoice_number_seq (
   company_id uuid primary key references public.companies (id) on delete cascade,
   last_value int not null default 0
 );
 
-create table public.invoices (
+create table if not exists public.invoices (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   invoice_number text not null,
@@ -72,10 +79,10 @@ create table public.invoices (
   unique (company_id, invoice_number)
 );
 
-create index invoices_company_id_idx on public.invoices (company_id);
-create index invoices_issue_date_idx on public.invoices (issue_date);
+create index if not exists invoices_company_id_idx on public.invoices (company_id);
+create index if not exists invoices_issue_date_idx on public.invoices (issue_date);
 
-create table public.invoice_line_items (
+create table if not exists public.invoice_line_items (
   id uuid primary key default gen_random_uuid(),
   invoice_id uuid not null references public.invoices (id) on delete cascade,
   description text not null,
@@ -88,9 +95,9 @@ create table public.invoice_line_items (
   sort_order int not null default 0
 );
 
-create index invoice_line_items_invoice_id_idx on public.invoice_line_items (invoice_id);
+create index if not exists invoice_line_items_invoice_id_idx on public.invoice_line_items (invoice_id);
 
-create table public.vouchers (
+create table if not exists public.vouchers (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   storage_path text not null,
@@ -103,9 +110,9 @@ create table public.vouchers (
   uploaded_at timestamptz not null default now()
 );
 
-create index vouchers_company_id_idx on public.vouchers (company_id);
+create index if not exists vouchers_company_id_idx on public.vouchers (company_id);
 
-create table public.bank_connections (
+create table if not exists public.bank_connections (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   provider text not null default 'aiia',
@@ -117,10 +124,10 @@ create table public.bank_connections (
   updated_at timestamptz not null default now()
 );
 
-create index bank_connections_company_id_idx on public.bank_connections (company_id);
+create index if not exists bank_connections_company_id_idx on public.bank_connections (company_id);
 
 -- Service-role only (no policies) — tokens never exposed to clients
-create table public.bank_connection_secrets (
+create table if not exists public.bank_connection_secrets (
   connection_id uuid primary key references public.bank_connections (id) on delete cascade,
   access_token text,
   refresh_token text,
@@ -129,7 +136,7 @@ create table public.bank_connection_secrets (
   updated_at timestamptz not null default now()
 );
 
-create table public.oauth_states (
+create table if not exists public.oauth_states (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   company_id uuid not null references public.companies (id) on delete cascade,
@@ -138,9 +145,9 @@ create table public.oauth_states (
   created_at timestamptz not null default now()
 );
 
-create index oauth_states_expires_idx on public.oauth_states (expires_at);
+create index if not exists oauth_states_expires_idx on public.oauth_states (expires_at);
 
-create table public.activity_events (
+create table if not exists public.activity_events (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   actor_id uuid references auth.users (id) on delete set null,
@@ -150,7 +157,7 @@ create table public.activity_events (
   created_at timestamptz not null default now()
 );
 
-create index activity_events_company_created_idx on public.activity_events (company_id, created_at desc);
+create index if not exists activity_events_company_created_idx on public.activity_events (company_id, created_at desc);
 
 -- updated_at triggers
 create or replace function public.set_updated_at()
@@ -161,12 +168,19 @@ begin
 end;
 $$;
 
+drop trigger if exists profiles_updated_at on public.profiles;
 create trigger profiles_updated_at before update on public.profiles
   for each row execute function public.set_updated_at();
+
+drop trigger if exists companies_updated_at on public.companies;
 create trigger companies_updated_at before update on public.companies
   for each row execute function public.set_updated_at();
+
+drop trigger if exists invoices_updated_at on public.invoices;
 create trigger invoices_updated_at before update on public.invoices
   for each row execute function public.set_updated_at();
+
+drop trigger if exists bank_connections_updated_at on public.bank_connections;
 create trigger bank_connections_updated_at before update on public.bank_connections
   for each row execute function public.set_updated_at();
 
@@ -180,6 +194,7 @@ begin
 end;
 $$;
 
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
@@ -210,15 +225,20 @@ alter table public.bank_connection_secrets enable row level security;
 alter table public.oauth_states enable row level security;
 
 -- Profiles
+drop policy if exists "Users read own profile" on public.profiles;
 create policy "Users read own profile" on public.profiles for select using (id = auth.uid());
+drop policy if exists "Users update own profile" on public.profiles;
 create policy "Users update own profile" on public.profiles for update using (id = auth.uid());
 
 -- Companies: members only
+drop policy if exists "Members read company" on public.companies;
 create policy "Members read company" on public.companies for select
   using (id in (select public.user_company_ids()));
+drop policy if exists "Authenticated create company" on public.companies;
 create policy "Authenticated create company" on public.companies for insert
   with check (auth.role() = 'authenticated');
 
+drop policy if exists "Owners update company" on public.companies;
 create policy "Owners update company" on public.companies for update
   using (
     id in (
@@ -228,22 +248,14 @@ create policy "Owners update company" on public.companies for update
   );
 
 -- Company members
+drop policy if exists "Members read memberships" on public.company_members;
 create policy "Members read memberships" on public.company_members for select
   using (company_id in (select public.user_company_ids()));
-create policy "Users insert self as owner" on public.company_members for insert
-  with check (user_id = auth.uid());
-create policy "Owners add members" on public.company_members for insert
-  with check (
-    company_id in (
-      select company_id from public.company_members
-      where user_id = auth.uid() and role = 'owner'
-    )
-  );
 
--- Fix: two insert policies - actually for signup we need user to add themselves as owner when creating company.
 -- Simpler: one policy — insert if user_id = auth.uid() OR you're owner of that company
 drop policy if exists "Users insert self as owner" on public.company_members;
 drop policy if exists "Owners add members" on public.company_members;
+drop policy if exists "Members insert rules" on public.company_members;
 
 create policy "Members insert rules" on public.company_members for insert
   with check (
@@ -255,15 +267,18 @@ create policy "Members insert rules" on public.company_members for insert
   );
 
 -- Subscriptions: members read, service role writes via dashboard — allow members to read only
+drop policy if exists "Members read subscription" on public.subscriptions;
 create policy "Members read subscription" on public.subscriptions for select
   using (company_id in (select public.user_company_ids()));
 
 -- Invoices
+drop policy if exists "Members crud invoices" on public.invoices;
 create policy "Members crud invoices" on public.invoices for all
   using (company_id in (select public.user_company_ids()))
   with check (company_id in (select public.user_company_ids()));
 
 -- Line items via invoice ownership
+drop policy if exists "Members crud line items" on public.invoice_line_items;
 create policy "Members crud line items" on public.invoice_line_items for all
   using (
     invoice_id in (
@@ -277,38 +292,53 @@ create policy "Members crud line items" on public.invoice_line_items for all
   );
 
 -- Vouchers
+drop policy if exists "Members crud vouchers" on public.vouchers;
 create policy "Members crud vouchers" on public.vouchers for all
   using (company_id in (select public.user_company_ids()))
   with check (company_id in (select public.user_company_ids()));
 
 -- Bank connections
+drop policy if exists "Members read bank" on public.bank_connections;
 create policy "Members read bank" on public.bank_connections for select
   using (company_id in (select public.user_company_ids()));
+drop policy if exists "Members insert bank" on public.bank_connections;
 create policy "Members insert bank" on public.bank_connections for insert
   with check (company_id in (select public.user_company_ids()));
+drop policy if exists "Members update bank" on public.bank_connections;
 create policy "Members update bank" on public.bank_connections for update
   using (company_id in (select public.user_company_ids()));
 
 -- Activity
+drop policy if exists "Members read activity" on public.activity_events;
 create policy "Members read activity" on public.activity_events for select
   using (company_id in (select public.user_company_ids()));
+drop policy if exists "Members insert activity" on public.activity_events;
 create policy "Members insert activity" on public.activity_events for insert
   with check (company_id in (select public.user_company_ids()));
 
 -- Invoice number seq: members of company
+drop policy if exists "Members seq" on public.invoice_number_seq;
 create policy "Members seq" on public.invoice_number_seq for all
   using (company_id in (select public.user_company_ids()))
   with check (company_id in (select public.user_company_ids()));
 
 -- Secrets: no access for authenticated JWT (service role bypasses RLS for Edge Functions)
+drop policy if exists "secrets_no_select" on public.bank_connection_secrets;
 create policy "secrets_no_select" on public.bank_connection_secrets for select to authenticated using (false);
+drop policy if exists "secrets_no_write" on public.bank_connection_secrets;
 create policy "secrets_no_write" on public.bank_connection_secrets for insert to authenticated with check (false);
+drop policy if exists "secrets_no_update" on public.bank_connection_secrets;
 create policy "secrets_no_update" on public.bank_connection_secrets for update to authenticated using (false) with check (false);
+drop policy if exists "secrets_no_delete" on public.bank_connection_secrets;
 create policy "secrets_no_delete" on public.bank_connection_secrets for delete to authenticated using (false);
 
+drop policy if exists "oauth_no_select" on public.oauth_states;
 create policy "oauth_no_select" on public.oauth_states for select to authenticated using (false);
+drop policy if exists "oauth_no_insert" on public.oauth_states;
 create policy "oauth_no_insert" on public.oauth_states for insert to authenticated with check (false);
+drop policy if exists "oauth_no_update" on public.oauth_states;
 create policy "oauth_no_update" on public.oauth_states for update to authenticated using (false) with check (false);
+drop policy if exists "oauth_no_delete" on public.oauth_states;
 create policy "oauth_no_delete" on public.oauth_states for delete to authenticated using (false);
 
 -- Storage bucket
@@ -316,6 +346,7 @@ insert into storage.buckets (id, name, public)
 values ('vouchers', 'vouchers', false)
 on conflict (id) do nothing;
 
+drop policy if exists "Members read vouchers storage" on storage.objects;
 create policy "Members read vouchers storage"
 on storage.objects for select
 using (
@@ -325,6 +356,7 @@ using (
   )
 );
 
+drop policy if exists "Members upload vouchers storage" on storage.objects;
 create policy "Members upload vouchers storage"
 on storage.objects for insert
 with check (
@@ -334,6 +366,7 @@ with check (
   )
 );
 
+drop policy if exists "Members update vouchers storage" on storage.objects;
 create policy "Members update vouchers storage"
 on storage.objects for update
 using (
@@ -343,6 +376,7 @@ using (
   )
 );
 
+drop policy if exists "Members delete vouchers storage" on storage.objects;
 create policy "Members delete vouchers storage"
 on storage.objects for delete
 using (
