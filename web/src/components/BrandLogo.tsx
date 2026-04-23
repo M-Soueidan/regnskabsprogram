@@ -22,9 +22,7 @@ export function BrandLogo({ className, variant = 'header' }: BrandLogoProps) {
           variant === 'footer' && 'gap-0.5',
         )}
       >
-        <span className="text-lg font-semibold tracking-tight text-slate-900">
-          Bilago<span className="font-medium text-slate-400">.dk</span>
-        </span>
+        <span className="text-lg font-semibold tracking-tight text-slate-900">Bilago</span>
         <span
           className={clsx(
             'text-[11px] text-slate-500',
