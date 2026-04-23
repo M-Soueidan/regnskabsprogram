@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import clsx from 'clsx'
 import { LoadingCentered } from '@/components/LoadingIndicator'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
 import { logActivity } from '@/lib/activity'
 import { sendInvoiceToCustomerEmail } from '@/lib/invoiceCustomerEmail'
+import { loadInvoicePdfPreview, openBlankTabForPdfNavigation } from '@/lib/loadInvoicePdfPreview'
 import { copenhagenYmd, formatDate, formatDateTime, formatDkk } from '@/lib/format'
 import { activityDisplayTitle } from '@/lib/activityDisplay'
 import type { Database } from '@/types/database'
@@ -14,6 +15,21 @@ type Invoice = Database['public']['Tables']['invoices']['Row']
 type Activity = Database['public']['Tables']['activity_events']['Row']
 
 type DetailTab = 'faktura' | 'udsendelser' | 'betalinger'
+
+const INVOICE_STATUS_DA: Record<Invoice['status'], string> = {
+  draft: 'Kladde',
+  sent: 'Sendt',
+  paid: 'Betalt',
+  cancelled: 'Annulleret',
+}
+
+type CreditChildSummary = {
+  id: string
+  invoice_number: string | null
+  gross_cents: number
+  currency: string
+  status: Invoice['status']
+}
 
 function metaInvoiceId(meta: Activity['meta']): string | null {
   if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null
@@ -75,37 +91,49 @@ function dispatchTimelineItems(
 export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { currentCompany, refresh } = useApp()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [activity, setActivity] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<DetailTab>('faktura')
-  const [menuOpen, setMenuOpen] = useState(false)
   const [markBusy, setMarkBusy] = useState(false)
   const [sendBusy, setSendBusy] = useState(false)
   const [reminderBusy, setReminderBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const close = (e: PointerEvent) => {
-      if (
-        menuRef.current &&
-        e.target instanceof Node &&
-        !menuRef.current.contains(e.target)
-      ) {
-        setMenuOpen(false)
-      }
-    }
-    document.addEventListener('pointerdown', close)
-    return () => document.removeEventListener('pointerdown', close)
-  }, [menuOpen])
+  const [pdfOpenBusy, setPdfOpenBusy] = useState(false)
+  /** Kreditnota der allerede peger på denne faktura (højst én pr. forretningslogik). */
+  const [creditChild, setCreditChild] = useState<CreditChildSummary | null>(null)
+  const creditLinkRef = useRef<HTMLDivElement | null>(null)
+  const processedFocusCredit = useRef<string | null>(null)
 
   useEffect(() => {
     setNotice(null)
   }, [id])
+
+  useEffect(() => {
+    processedFocusCredit.current = null
+  }, [id])
+
+  useEffect(() => {
+    const viewingCredit = invoice ? isCreditNote(invoice) : false
+    const want = Boolean((location.state as { focusCredit?: boolean } | null)?.focusCredit)
+    if (!want || viewingCredit || !id || loading) return
+    if (!creditChild) {
+      navigate(`/app/invoices/${id}`, { replace: true, state: null })
+      return
+    }
+    const marker = `${location.key}:focusCredit`
+    if (processedFocusCredit.current === marker) return
+    processedFocusCredit.current = marker
+    setTab('faktura')
+    const t = window.setTimeout(() => {
+      creditLinkRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      navigate(`/app/invoices/${id}`, { replace: true, state: null })
+    }, 80)
+    return () => window.clearTimeout(t)
+  }, [location.key, location.state, creditChild, invoice, id, loading, navigate])
 
   useEffect(() => {
     if (!id || !currentCompany) {
@@ -116,7 +144,7 @@ export function InvoiceDetailPage() {
     void (async () => {
       setLoading(true)
       setError(null)
-      const [{ data: inv, error: e1 }, { data: act }] = await Promise.all([
+      const [{ data: inv, error: e1 }, { data: act }, { data: creditRows }] = await Promise.all([
         supabase.from('invoices').select('*').eq('id', id).eq('company_id', currentCompany.id).maybeSingle(),
         supabase
           .from('activity_events')
@@ -124,14 +152,33 @@ export function InvoiceDetailPage() {
           .eq('company_id', currentCompany.id)
           .order('created_at', { ascending: false })
           .limit(400),
+        supabase
+          .from('invoices')
+          .select('id, invoice_number, gross_cents, currency, status')
+          .eq('company_id', currentCompany.id)
+          .eq('credited_invoice_id', id)
+          .limit(1),
       ])
       if (c) return
       if (e1 || !inv) {
         setError('Faktura ikke fundet')
         setInvoice(null)
+        setCreditChild(null)
         setLoading(false)
         return
       }
+      const cr = creditRows?.[0]
+      setCreditChild(
+        cr
+          ? {
+              id: cr.id,
+              invoice_number: cr.invoice_number,
+              gross_cents: Number(cr.gross_cents ?? 0),
+              currency: cr.currency ?? 'DKK',
+              status: cr.status as Invoice['status'],
+            }
+          : null,
+      )
       setInvoice(inv as Invoice)
       setActivity(act ?? [])
       setLoading(false)
@@ -150,13 +197,33 @@ export function InvoiceDetailPage() {
       .eq('company_id', currentCompany.id)
       .maybeSingle()
     if (inv) setInvoice(inv as Invoice)
-    const { data: act } = await supabase
-      .from('activity_events')
-      .select('*')
-      .eq('company_id', currentCompany.id)
-      .order('created_at', { ascending: false })
-      .limit(400)
+    const [{ data: act }, { data: creditRows }] = await Promise.all([
+      supabase
+        .from('activity_events')
+        .select('*')
+        .eq('company_id', currentCompany.id)
+        .order('created_at', { ascending: false })
+        .limit(400),
+      supabase
+        .from('invoices')
+        .select('id, invoice_number, gross_cents, currency, status')
+        .eq('company_id', currentCompany.id)
+        .eq('credited_invoice_id', id)
+        .limit(1),
+    ])
     setActivity(act ?? [])
+    const cr = creditRows?.[0]
+    setCreditChild(
+      cr
+        ? {
+            id: cr.id,
+            invoice_number: cr.invoice_number,
+            gross_cents: Number(cr.gross_cents ?? 0),
+            currency: cr.currency ?? 'DKK',
+            status: cr.status as Invoice['status'],
+          }
+        : null,
+    )
   }
 
   async function markPaid() {
@@ -212,6 +279,30 @@ export function InvoiceDetailPage() {
       setNotice(e instanceof Error ? e.message : 'Kunne ikke sende')
     } finally {
       setSendBusy(false)
+    }
+  }
+
+  async function openPdfInNewTab() {
+    if (!id || !currentCompany) return
+    const tab = openBlankTabForPdfNavigation()
+    if (!tab) {
+      setNotice('Kunne ikke åbne ny fane. Tjek om browseren blokerer popups for Bilago.')
+      return
+    }
+    setPdfOpenBusy(true)
+    setNotice(null)
+    try {
+      const preview = await loadInvoicePdfPreview(currentCompany, id)
+      tab.location.href = preview.mainObjectUrl
+    } catch (e) {
+      try {
+        tab.close()
+      } catch {
+        /* ignore */
+      }
+      setNotice(e instanceof Error ? e.message : 'Kunne ikke generere PDF')
+    } finally {
+      setPdfOpenBusy(false)
     }
   }
 
@@ -290,9 +381,9 @@ export function InvoiceDetailPage() {
   })()
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-slate-50 pb-8">
-      <header className="sticky top-0 z-10 w-full border-b border-slate-200/90 bg-white pb-0 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-sm max-md:-mx-5 md:pt-3">
-        <div className="flex w-full items-center justify-between gap-2 pl-3 pr-2 md:mx-auto md:max-w-lg md:px-4 md:pt-0">
+    <div className="flex min-h-0 flex-1 flex-col bg-slate-50 pb-8 max-md:-mx-5 max-md:-mt-5">
+      <header className="sticky top-0 z-10 w-full border-b border-slate-200/90 bg-white pb-0 shadow-sm max-md:pt-[calc(env(safe-area-inset-top)+0.5rem)] md:pt-3">
+        <div className="flex w-full items-center gap-2 pl-3 pr-3 md:mx-auto md:max-w-lg md:px-4 md:pt-0">
           <button
             type="button"
             onClick={() => navigate('/app/invoices')}
@@ -303,49 +394,6 @@ export function InvoiceDetailPage() {
           <h1 className="min-w-0 flex-1 truncate text-center text-base font-semibold tracking-tight text-slate-900">
             Faktura {num}
           </h1>
-          <div className="relative -mr-1 shrink-0" ref={menuRef}>
-            <button
-              type="button"
-              aria-label="Menu"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((o) => !o)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-800"
-            >
-              <IconDots />
-            </button>
-            {menuOpen ? (
-              <ul
-                className="absolute right-0 z-20 mt-1 w-52 rounded-xl border border-slate-200 bg-white py-1 text-sm shadow-lg"
-                role="menu"
-              >
-                <li>
-                  <Link
-                    role="menuitem"
-                    className="block px-4 py-2.5 text-slate-800 hover:bg-slate-50"
-                    to={`/app/invoices/${id}/pdf`}
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Åbn PDF
-                  </Link>
-                </li>
-                {!credit ? (
-                  <li>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="w-full px-4 py-2.5 text-left text-slate-800 hover:bg-slate-50"
-                      onClick={() => {
-                        setMenuOpen(false)
-                        navigate(`/app/invoices/new?creditFor=${id}`)
-                      }}
-                    >
-                      Opret kreditnota
-                    </button>
-                  </li>
-                ) : null}
-              </ul>
-            ) : null}
-          </div>
         </div>
 
         <nav
@@ -380,11 +428,42 @@ export function InvoiceDetailPage() {
         </nav>
       </header>
 
-      <div className="mx-auto w-full max-w-lg flex-1 px-4 pt-5">
+      <div className="mx-auto w-full max-w-lg flex-1 px-5 pt-5 md:px-4">
         {notice ? (
           <p className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/80 px-3 py-2.5 text-sm text-indigo-950">
             {notice}
           </p>
+        ) : null}
+
+        {creditChild && !credit ? (
+          <div
+            ref={creditLinkRef}
+            id="tilknyttet-kreditnota"
+            className="mb-4 space-y-3 rounded-xl border border-rose-200 bg-rose-50/95 p-3 text-sm text-rose-950"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="min-w-0 font-medium leading-snug">
+                Denne faktura er kreditnoteret — beløbet er modregnet i kreditnotaen.
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate(`/app/invoices/${creditChild.id}`)}
+                className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 shadow-sm ring-1 ring-rose-200/80 hover:bg-rose-50"
+              >
+                Åbn kreditnota {String(creditChild.invoice_number ?? '').trim() || '—'}
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-rose-100/90 bg-white/90 px-3 py-2 text-xs text-slate-700">
+              <span>
+                <span className="font-semibold text-slate-800">Tilknyttet kreditnota</span>
+                <span className="mx-1.5 text-slate-400">·</span>
+                <span className="text-slate-600">{INVOICE_STATUS_DA[creditChild.status]}</span>
+              </span>
+              <span className="font-semibold tabular-nums text-rose-800">
+                {formatDkk(creditChild.gross_cents, creditChild.currency)}
+              </span>
+            </div>
+          </div>
         ) : null}
 
         {tab === 'faktura' ? (
@@ -401,13 +480,16 @@ export function InvoiceDetailPage() {
                       <p className="text-xs font-medium text-slate-500">Kunde</p>
                       <p className="mt-0.5 text-lg font-semibold text-slate-900">{invoice.customer_name}</p>
                     </div>
-                    <Link
-                      to={`/app/invoices/${id}/pdf`}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-100"
+                    <button
+                      type="button"
+                      title="Åbner PDF i en ny browserfane"
+                      disabled={pdfOpenBusy}
+                      onClick={() => void openPdfInNewTab()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-60"
                     >
                       <IconPdfSmall />
-                      Se PDF
-                    </Link>
+                      {pdfOpenBusy ? 'Åbner…' : 'Se PDF'}
+                    </button>
                   </div>
                   <p className="mt-4 text-xs font-medium uppercase tracking-wide text-slate-500">
                     Beløb inkl. moms
@@ -415,11 +497,16 @@ export function InvoiceDetailPage() {
                   <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-slate-900">
                     {formatDkk(invoice.gross_cents, invoice.currency)}
                   </p>
-                  <p className="mt-3 inline-flex items-center gap-2 text-sm text-slate-600">
+                  <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
                     <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                       Status
                     </span>
                     <span className={statusLine.className}>{statusLine.text}</span>
+                    {creditChild && !credit ? (
+                      <span className="rounded-md bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800">
+                        Kreditnota oprettet
+                      </span>
+                    ) : null}
                   </p>
                 </div>
               </div>
@@ -488,9 +575,21 @@ export function InvoiceDetailPage() {
                 <ActionRow
                   icon={<IconCredit className={credit ? 'text-slate-400' : 'text-indigo-600'} />}
                   title="Kreditnota"
-                  subtitle={credit ? 'Kan ikke krediteres igen' : 'Modregning af denne faktura'}
+                  subtitle={
+                    credit
+                      ? 'Kan ikke krediteres igen'
+                      : creditChild
+                        ? `Allerede oprettet (${String(creditChild.invoice_number ?? '').trim() || '—'}) — åbn kreditnota`
+                        : 'Modregning af denne faktura'
+                  }
                   disabled={credit}
-                  onClick={() => navigate(`/app/invoices/new?creditFor=${id}`)}
+                  onClick={
+                    credit
+                      ? undefined
+                      : creditChild
+                        ? () => navigate(`/app/invoices/${creditChild.id}`)
+                        : () => navigate(`/app/invoices/new?creditFor=${id}`)
+                  }
                 />
               </div>
             </section>
@@ -666,14 +765,6 @@ function ActionRow({
     <button type="button" className={rowClass} disabled={disabled} onClick={onClick}>
       {body}
     </button>
-  )
-}
-
-function IconDots() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z" />
-    </svg>
   )
 }
 

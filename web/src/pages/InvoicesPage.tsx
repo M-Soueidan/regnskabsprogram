@@ -128,6 +128,21 @@ export function InvoicesPage() {
     return sortInvoicesFlat(searchMatched, sortKey, sortDir)
   }, [searchMatched, sortKey, sortDir])
 
+  /** Forældrefaktura-id → første kreditnota (én pr. faktura). */
+  const creditNoteByParentId = useMemo(() => {
+    const m = new Map<string, { id: string; invoice_number: string }>()
+    for (const row of rows) {
+      const pid = row.credited_invoice_id
+      if (!pid) continue
+      if (m.has(pid)) continue
+      m.set(pid, {
+        id: row.id,
+        invoice_number: String(row.invoice_number ?? '').trim() || '—',
+      })
+    }
+    return m
+  }, [rows])
+
   function onSortColumn(col: InvoiceSortKey) {
     const next = nextColumnSortState(col, sortKey, sortDir, true)
     setSortKey(next.key as InvoiceSortKey | null)
@@ -207,11 +222,19 @@ export function InvoicesPage() {
         ) : (
           filteredRows.map((inv) => {
             const credit = isCreditNote(inv)
+            const linkedCredit = !credit ? creditNoteByParentId.get(inv.id) : undefined
             return (
-              <button
+              <div
                 key={inv.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => openInvoice(inv.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    openInvoice(inv.id)
+                  }
+                }}
                 className={
                   credit
                     ? 'flex flex-col gap-2 rounded-2xl border border-rose-200 border-l-[3px] border-l-rose-500 bg-rose-50/50 p-4 pl-3.5 text-left shadow-sm transition hover:border-rose-300 hover:bg-rose-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500'
@@ -235,6 +258,18 @@ export function InvoicesPage() {
                 >
                   {inv.customer_name}
                 </p>
+                {linkedCredit ? (
+                  <div className="pt-1">
+                    <Link
+                      to={`/app/invoices/${inv.id}`}
+                      state={{ focusCredit: true }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="block w-full rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-left text-xs font-semibold text-rose-900 shadow-sm transition hover:border-rose-300 hover:bg-rose-100/90"
+                    >
+                      Kreditnoteret — se kobling til {linkedCredit.invoice_number}
+                    </Link>
+                  </div>
+                ) : null}
                 <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
                   <span className={`text-xs ${credit ? 'text-rose-700/80' : 'text-slate-600'}`}>
                     {formatDate(inv.issue_date)}
@@ -247,7 +282,7 @@ export function InvoicesPage() {
                     {statusDa[inv.status]}
                   </span>
                 </div>
-              </button>
+              </div>
             )
           })
         )}
@@ -314,6 +349,7 @@ export function InvoicesPage() {
             ) : (
               filteredRows.map((inv) => {
                 const credit = isCreditNote(inv)
+                const linkedCredit = !credit ? creditNoteByParentId.get(inv.id) : undefined
                 return (
                   <tr
                     key={inv.id}
@@ -335,7 +371,19 @@ export function InvoicesPage() {
                     <td
                       className={`border-l-[3px] border-l-rose-500 py-3 pl-3 pr-4 font-mono ${credit ? 'text-rose-800' : 'border-l-transparent text-indigo-700'}`}
                     >
-                      {inv.invoice_number}
+                      <div className="flex flex-col gap-1.5">
+                        <span>{inv.invoice_number}</span>
+                        {linkedCredit ? (
+                          <Link
+                            to={`/app/invoices/${inv.id}`}
+                            state={{ focusCredit: true }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-max rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-left text-[11px] font-semibold leading-tight text-rose-900 hover:bg-rose-100"
+                          >
+                            Kreditnoteret ({linkedCredit.invoice_number})
+                          </Link>
+                        ) : null}
+                      </div>
                     </td>
                     <td className={`px-4 py-3 ${credit ? 'text-rose-900/90' : 'text-slate-800'}`}>
                       {inv.customer_name}

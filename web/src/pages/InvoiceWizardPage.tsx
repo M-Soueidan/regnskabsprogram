@@ -465,6 +465,17 @@ export function InvoiceWizardPage() {
         setError('Denne post er allerede en kreditnota — vælg en almindelig faktura')
         return
       }
+      const { data: existingCreditRows } = await supabase
+        .from('invoices')
+        .select('id')
+        .eq('company_id', currentCompany.id)
+        .eq('credited_invoice_id', creditForParam)
+        .limit(1)
+      const existingCreditId = existingCreditRows?.[0]?.id
+      if (existingCreditId) {
+        navigate(`/app/invoices/${existingCreditId}`, { replace: true })
+        return
+      }
       const { data: li } = await supabase
         .from('invoice_line_items')
         .select('*')

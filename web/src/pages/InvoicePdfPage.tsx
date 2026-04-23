@@ -2,16 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
-import { fetchCompanyLogoDataUrl } from '@/lib/invoiceBranding'
-import { generateInvoicePdfBlob, type InvoicePdfOptions } from '@/lib/invoicePdf'
+import { loadInvoicePdfPreview } from '@/lib/loadInvoicePdfPreview'
 import { lineAmounts } from '@/lib/invoiceMath'
 import { sendInvoiceToCustomerEmail } from '@/lib/invoiceCustomerEmail'
 import { InvoicePdfCanvasViewer } from '@/components/InvoicePdfCanvasViewer'
-import type { Database } from '@/types/database'
-
-type Invoice = Database['public']['Tables']['invoices']['Row']
-type LineRow = Database['public']['Tables']['invoice_line_items']['Row']
-
 type OriginalPdfPreview = {
   url: string
   invoiceNumber: string
@@ -74,98 +68,26 @@ export function InvoicePdfPage() {
       revokeAllBlobUrls()
       setBlobUrl(null)
       setOriginalPdf(null)
-      const { data: inv, error: e1 } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('id', id)
-        .eq('company_id', currentCompany.id)
-        .single()
-      if (e1 || !inv) {
-        if (!cancelled) {
-          setError('Faktura ikke fundet')
-          setLoading(false)
+      try {
+        const r = await loadInvoicePdfPreview(currentCompany, id)
+        if (cancelled) {
+          URL.revokeObjectURL(r.mainObjectUrl)
+          if (r.originalPdf) URL.revokeObjectURL(r.originalPdf.url)
+          return
         }
-        return
-      }
-      const { data: li, error: e2 } = await supabase
-        .from('invoice_line_items')
-        .select('*')
-        .eq('invoice_id', id)
-        .order('sort_order', { ascending: true })
-      if (e2) {
-        if (!cancelled) {
-          setError(e2.message)
-          setLoading(false)
-        }
-        return
-      }
-      const logo = await fetchCompanyLogoDataUrl(currentCompany.invoice_logo_path)
-
-      // Kreditnota: byg også PDF for den oprindelige faktura (vist over kreditnotaen)
-      if (inv.credited_invoice_id) {
-        const { data: origInv, error: oe } = await supabase
-          .from('invoices')
-          .select('*')
-          .eq('id', inv.credited_invoice_id)
-          .eq('company_id', currentCompany.id)
-          .maybeSingle()
-        if (!oe && origInv) {
-          const { data: origLi } = await supabase
-            .from('invoice_line_items')
-            .select('*')
-            .eq('invoice_id', origInv.id)
-            .order('sort_order', { ascending: true })
-          if (!cancelled) {
-            const origBlob = generateInvoicePdfBlob(
-              currentCompany,
-              origInv as Invoice,
-              (origLi ?? []) as LineRow[],
-              logo,
-            )
-            const origUrl = URL.createObjectURL(origBlob)
-            objectUrlsRef.current.push(origUrl)
-            setOriginalPdf({
-              url: origUrl,
-              invoiceNumber: String(origInv.invoice_number ?? '').trim() || '—',
-              invoiceId: origInv.id,
-            })
-          }
-        } else {
-          if (!cancelled) setOriginalPdf(null)
-        }
-      } else {
-        if (!cancelled) setOriginalPdf(null)
-      }
-
-      let pdfOptions: InvoicePdfOptions | undefined
-      if (inv.credited_invoice_id) {
-        const { data: refInv } = await supabase
-          .from('invoices')
-          .select('invoice_number')
-          .eq('id', inv.credited_invoice_id)
-          .maybeSingle()
-        pdfOptions = {
-          heading: 'Kreditnota',
-          creditReferenceLine: refInv?.invoice_number
-            ? `Krediterer faktura ${refInv.invoice_number}`
-            : 'Kreditnota',
-        }
-      }
-      const blob = generateInvoicePdfBlob(
-        currentCompany,
-        inv as Invoice,
-        (li ?? []) as LineRow[],
-        logo,
-        pdfOptions,
-      )
-      const url = URL.createObjectURL(blob)
-      objectUrlsRef.current.push(url)
-      if (!cancelled) {
-        setInvoiceNumber(inv.invoice_number)
-        setIsCreditNote(!!inv.credited_invoice_id)
-        setCustomerEmail(inv.customer_email?.trim() || null)
-        setBlobUrl(url)
+        objectUrlsRef.current.push(r.mainObjectUrl)
+        if (r.originalPdf) objectUrlsRef.current.push(r.originalPdf.url)
+        setInvoiceNumber(r.invoiceNumber)
+        setIsCreditNote(r.isCreditNote)
+        setCustomerEmail(r.customerEmail)
+        setBlobUrl(r.mainObjectUrl)
+        setOriginalPdf(r.originalPdf)
         setLoading(false)
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Kunne ikke vise PDF')
+          setLoading(false)
+        }
       }
     })()
     return () => {
@@ -458,8 +380,8 @@ export function InvoicePdfPage() {
         </div>
         <p className="text-xs text-slate-500 sm:text-sm">
           {isCreditNote
-            ? 'Kreditnota: du ser først den oprindelige faktura, derefter kreditnotaen. PDF vises i fuld bredde (browserens egen visning). Data gemmes som linjer; samme PDF som ved download. En afsendt faktura kan ikke ændres — kredit følger efterbetalingsmønsteret.'
-            : 'PDF vises i fuld bredde (browserens egen visning). Samme PDF som ved download — data gemmes som linjer. En afsendt faktura kan ikke ændres — brug kredit hvis nødvendigt.'}
+            ? 'Kreditnota: du ser først den oprindelige faktura, derefter kreditnotaen. Her i appen er PDF til hurtig kontrol; fra fakturadetalje åbnes PDF i ny fane. Samme fil som ved download — data gemmes som linjer. En afsendt faktura kan ikke ændres — kredit følger efterbetalingsmønsteret.'
+            : 'Her i appen er PDF til hurtig kontrol; fra fakturadetalje åbnes den i ny fane med browserens egen visning. Samme PDF som ved download — data gemmes som linjer. En afsendt faktura kan ikke ændres — brug kredit hvis nødvendigt.'}
         </p>
         {mailNotice ? (
           <p className="text-sm text-slate-700" role="status">
