@@ -542,10 +542,6 @@ export function InvoiceDetailPage() {
                             <dt>Kanal</dt>
                             <dd className="font-medium text-slate-800">E-mail</dd>
                           </div>
-                          <div className="flex justify-between gap-2">
-                            <dt>Åbning</dt>
-                            <dd className="font-medium text-slate-500">Ikke målt</dd>
-                          </div>
                         </dl>
                       </div>
                     </li>
@@ -566,10 +562,6 @@ export function InvoiceDetailPage() {
                           <div className="flex justify-between gap-2">
                             <dt>Kanal</dt>
                             <dd className="font-medium text-slate-800">E-mail</dd>
-                          </div>
-                          <div className="flex justify-between gap-2">
-                            <dt>Åbning</dt>
-                            <dd className="font-medium text-slate-500">Ikke målt</dd>
                           </div>
                         </dl>
                       </div>
