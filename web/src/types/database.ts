@@ -492,6 +492,7 @@ export interface Database {
         Row: {
           id: string
           company_id: string
+          ticket_number: number
           status: 'open' | 'closed' | 'waiting_customer'
           consent_deep_access: boolean
           created_at: string

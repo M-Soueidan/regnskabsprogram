@@ -118,6 +118,11 @@ export function formatDateOnly(iso: string) {
   return formatDate(iso)
 }
 
+/** Kunde-synligt support-sagsnummer (fx "#SAG-0003"). */
+export function formatSupportTicketNumber(n: number): string {
+  return `#SAG-${n.toString().padStart(4, '0')}`
+}
+
 /** Dato uden tid med langt månedsnavn (faktura-PDF). */
 export function formatDateLongNoTime(iso: string) {
   const d = iso.slice(0, 10)

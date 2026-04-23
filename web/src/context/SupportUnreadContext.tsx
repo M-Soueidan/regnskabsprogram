@@ -28,7 +28,6 @@ export function useSupportUnread() {
 export function SupportUnreadProvider({ children }: { children: ReactNode }) {
   const { currentCompany, user, subscription } = useApp()
   const [unreadCount, setUnreadCount] = useState(0)
-  const [supportTicketId, setSupportTicketId] = useState<string | null>(null)
 
   const subOk = subscriptionOk(subscription)
 
@@ -53,37 +52,12 @@ export function SupportUnreadProvider({ children }: { children: ReactNode }) {
   }, [refresh])
 
   useEffect(() => {
-    if (!currentCompany || !user || !subOk) {
-      setSupportTicketId(null)
-      return
-    }
-    let cancelled = false
-    ;(async () => {
-      const { data } = await supabase
-        .from('support_tickets')
-        .select('id')
-        .eq('company_id', currentCompany.id)
-        .maybeSingle()
-      if (cancelled) return
-      setSupportTicketId(data?.id ?? null)
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [currentCompany, user, subOk])
-
-  useEffect(() => {
-    if (!subOk || !currentCompany || !supportTicketId) return
+    if (!subOk || !currentCompany) return
 
     const ch = supabase.channel(`support-unread:${currentCompany.id}`)
     ch.on(
       'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'support_messages',
-        filter: `ticket_id=eq.${supportTicketId}`,
-      },
+      { event: 'INSERT', schema: 'public', table: 'support_messages' },
       () => {
         void refresh()
       },
@@ -93,7 +67,7 @@ export function SupportUnreadProvider({ children }: { children: ReactNode }) {
     return () => {
       void supabase.removeChannel(ch)
     }
-  }, [currentCompany?.id, refresh, subOk, supportTicketId])
+  }, [currentCompany?.id, refresh, subOk])
 
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('setAppBadge' in navigator)) return

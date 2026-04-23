@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useApp } from '@/context/AppProvider'
-import { formatDateTime } from '@/lib/format'
+import { formatDateTime, formatSupportTicketNumber } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 
@@ -151,7 +151,7 @@ export function PlatformSupportPage() {
     <div className="flex w-full flex-col gap-6 lg:flex-row">
       <div className="lg:w-80 lg:shrink-0">
         <h1 className="text-2xl font-semibold text-slate-900">Support</h1>
-        <p className="mt-1 text-sm text-slate-600">Én tråd pr. virksomhed.</p>
+        <p className="mt-1 text-sm text-slate-600">Flere sager pr. virksomhed.</p>
         <div className="mt-4 max-h-[70vh] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           {loading ? (
             <div className="p-4 text-sm text-slate-500">Indlæser…</div>
@@ -168,8 +168,13 @@ export function PlatformSupportPage() {
                       selectedId === t.id ? 'bg-indigo-50' : ''
                     }`}
                   >
-                    <div className="font-medium text-slate-900">
-                      {t.companies?.name ?? 'Virksomhed'}
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="font-medium text-slate-900">
+                        {t.companies?.name ?? 'Virksomhed'}
+                      </span>
+                      <span className="font-mono text-xs text-slate-500">
+                        {formatSupportTicketNumber(t.ticket_number)}
+                      </span>
                     </div>
                     <div className="mt-0.5 text-xs text-slate-500">
                       {statusLabels[t.status] ?? t.status}
@@ -199,7 +204,10 @@ export function PlatformSupportPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">
-                    {selected.companies?.name ?? 'Virksomhed'}
+                    {selected.companies?.name ?? 'Virksomhed'}{' '}
+                    <span className="font-mono text-sm font-normal text-slate-500">
+                      {formatSupportTicketNumber(selected.ticket_number)}
+                    </span>
                   </h2>
                   {selected.companies?.cvr ? (
                     <p className="text-sm text-slate-600">CVR {selected.companies.cvr}</p>

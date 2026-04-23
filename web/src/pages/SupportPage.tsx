@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { AppPageLayout } from '@/components/AppPageLayout'
 import { useApp } from '@/context/AppProvider'
 import { useSupportUnread } from '@/context/SupportUnreadContext'
-import { formatDateTime } from '@/lib/format'
+import { formatDateTime, formatSupportTicketNumber } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 
 type Message = Database['public']['Tables']['support_messages']['Row']
 type Ticket = Database['public']['Tables']['support_tickets']['Row']
+
+const CLOSED_TICKETS_LIMIT = 10
 
 function customerTicketStatusLabel(status: string): string {
   switch (status) {
@@ -24,6 +26,9 @@ function customerTicketStatusLabel(status: string): string {
 }
 
 function SupportMessageList({ messages }: { messages: Message[] }) {
+  if (messages.length === 0) {
+    return <p className="text-sm text-slate-500">Ingen beskeder endnu.</p>
+  }
   return (
     <ul className="space-y-4">
       {messages.map((m) => (
@@ -49,77 +54,94 @@ function SupportMessageList({ messages }: { messages: Message[] }) {
 export function SupportPage() {
   const { currentCompany, user } = useApp()
   const { refresh: refreshUnread } = useSupportUnread()
-  const [ticket, setTicket] = useState<Ticket | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [messagesByTicket, setMessagesByTicket] = useState<Record<string, Message[]>>({})
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const loadThread = useCallback(async (companyId: string) => {
-    setLoading(true)
-    setError(null)
-    const first = await supabase
-      .from('support_tickets')
-      .select('*')
-      .eq('company_id', companyId)
-      .maybeSingle()
-    if (first.error) {
-      setError(first.error.message)
-      setLoading(false)
-      return
-    }
-    let ticketRow = first.data
-    if (!ticketRow) {
-      const ins = await supabase
+  const loadThread = useCallback(
+    async (companyId: string) => {
+      setLoading(true)
+      setError(null)
+      const { data: ticketRows, error: tErr } = await supabase
         .from('support_tickets')
-        .insert({ company_id: companyId })
         .select('*')
-        .single()
-      if (ins.error) {
-        const retry = await supabase
-          .from('support_tickets')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false })
+      if (tErr) {
+        setError(tErr.message)
+        setLoading(false)
+        return
+      }
+      const ts = ticketRows ?? []
+      setTickets(ts)
+
+      if (ts.length === 0) {
+        setMessagesByTicket({})
+      } else {
+        const ticketIds = ts.map((t) => t.id)
+        const { data: msgRows, error: mErr } = await supabase
+          .from('support_messages')
           .select('*')
-          .eq('company_id', companyId)
-          .maybeSingle()
-        if (retry.error || !retry.data) {
-          setError(ins.error.message)
+          .in('ticket_id', ticketIds)
+          .order('created_at', { ascending: true })
+        if (mErr) {
+          setError(mErr.message)
           setLoading(false)
           return
         }
-        ticketRow = retry.data
-      } else {
-        ticketRow = ins.data
+        const grouped: Record<string, Message[]> = {}
+        for (const m of msgRows ?? []) {
+          ;(grouped[m.ticket_id] ??= []).push(m)
+        }
+        setMessagesByTicket(grouped)
       }
-    }
-    setTicket(ticketRow)
-    const { data: msgs, error: mErr } = await supabase
-      .from('support_messages')
-      .select('*')
-      .eq('ticket_id', ticketRow.id)
-      .order('created_at', { ascending: true })
-    if (mErr) {
-      setError(mErr.message)
+
+      await supabase.rpc('support_mark_ticket_read', { p_company_id: companyId })
+      void refreshUnread()
       setLoading(false)
-      return
-    }
-    setMessages(msgs ?? [])
-    await supabase.rpc('support_mark_ticket_read', { p_company_id: companyId })
-    void refreshUnread()
-    setLoading(false)
-  }, [refreshUnread])
+    },
+    [refreshUnread],
+  )
 
   useEffect(() => {
     if (!currentCompany) return
     void loadThread(currentCompany.id)
   }, [currentCompany, loadThread])
 
+  const activeTicket = useMemo(
+    () => tickets.find((t) => t.status !== 'closed') ?? null,
+    [tickets],
+  )
+  const closedTickets = useMemo(
+    () => tickets.filter((t) => t.status === 'closed').slice(0, CLOSED_TICKETS_LIMIT),
+    [tickets],
+  )
+
   async function send() {
-    if (!ticket || !user || !body.trim()) return
+    if (!user || !body.trim() || !currentCompany) return
     setSending(true)
     setError(null)
+
+    let ticketId = activeTicket?.id ?? null
+    if (!ticketId) {
+      const { data: newTicket, error: insTicketErr } = await supabase
+        .from('support_tickets')
+        .insert({ company_id: currentCompany.id })
+        .select('*')
+        .single()
+      if (insTicketErr || !newTicket) {
+        setError(insTicketErr?.message ?? 'Kunne ikke oprette ny sag.')
+        setSending(false)
+        return
+      }
+      ticketId = newTicket.id
+    }
+
     const { error: insErr } = await supabase.from('support_messages').insert({
-      ticket_id: ticket.id,
+      ticket_id: ticketId,
       user_id: user.id,
       body: body.trim(),
       is_staff: false,
@@ -132,12 +154,12 @@ export function SupportPage() {
     await supabase
       .from('support_tickets')
       .update({ updated_at: new Date().toISOString() })
-      .eq('id', ticket.id)
+      .eq('id', ticketId)
     setBody('')
-    await loadThread(currentCompany!.id)
+    await loadThread(currentCompany.id)
     setSending(false)
     void supabase.functions
-      .invoke('support-push-customer-notify', { body: { ticket_id: ticket.id } })
+      .invoke('support-push-customer-notify', { body: { ticket_id: ticketId } })
       .then(({ data, error }) => {
         if (error) {
           console.warn('[support-push-customer-notify]', error.message)
@@ -165,7 +187,7 @@ export function SupportPage() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Support</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Én samtale pr. virksomhed. Vi svarer på hverdage.
+          Vi svarer på hverdage. Når en sag er afsluttet, starter en ny besked en ny sag.
         </p>
       </div>
 
@@ -179,35 +201,31 @@ export function SupportPage() {
         <div className="text-sm text-slate-500">Indlæser…</div>
       ) : (
         <>
-          {ticket ? (
-            <p className="text-xs text-slate-500">
-              Status:{' '}
-              <span className="font-medium text-slate-700">
-                {customerTicketStatusLabel(ticket.status)}
-              </span>
+          {activeTicket ? (
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Sag {formatSupportTicketNumber(activeTicket.ticket_number)}
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Status:{' '}
+                  <span className="font-medium text-slate-700">
+                    {customerTicketStatusLabel(activeTicket.status)}
+                  </span>
+                </p>
+              </div>
+              <SupportMessageList messages={messagesByTicket[activeTicket.id] ?? []} />
+            </section>
+          ) : tickets.length > 0 ? (
+            <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              Alle tidligere sager er afsluttet. Skriv nedenfor for at starte en ny sag.
             </p>
           ) : null}
 
-          {ticket?.status === 'closed' ? (
-            <details className="rounded-xl border border-slate-200 bg-slate-50/90">
-              <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-slate-800">
-                Vis tidligere beskeder
-                {messages.length > 0 ? (
-                  <span className="ml-1 font-normal text-slate-500">
-                    ({messages.length} {messages.length === 1 ? 'besked' : 'beskeder'})
-                  </span>
-                ) : null}
-              </summary>
-              <div className="border-t border-slate-200 px-2 pb-3 pt-1">
-                <SupportMessageList messages={messages} />
-              </div>
-            </details>
-          ) : (
-            <SupportMessageList messages={messages} />
-          )}
-
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <label className="text-xs font-medium text-slate-600">Ny besked</label>
+            <label className="text-xs font-medium text-slate-600">
+              {activeTicket ? 'Ny besked' : 'Start en ny sag'}
+            </label>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
@@ -224,6 +242,37 @@ export function SupportPage() {
               {sending ? 'Sender…' : 'Send'}
             </button>
           </div>
+
+          {closedTickets.length > 0 ? (
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold text-slate-900">Tidligere sager</h2>
+              <ul className="space-y-2">
+                {closedTickets.map((t) => {
+                  const msgs = messagesByTicket[t.id] ?? []
+                  return (
+                    <li key={t.id}>
+                      <details className="rounded-xl border border-slate-200 bg-slate-50/90">
+                        <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-slate-800">
+                          Sag {formatSupportTicketNumber(t.ticket_number)}
+                          <span className="ml-2 font-normal text-slate-500">
+                            afsluttet {formatDateTime(t.updated_at)}
+                          </span>
+                          {msgs.length > 0 ? (
+                            <span className="ml-2 font-normal text-slate-500">
+                              · {msgs.length} {msgs.length === 1 ? 'besked' : 'beskeder'}
+                            </span>
+                          ) : null}
+                        </summary>
+                        <div className="border-t border-slate-200 px-2 pb-3 pt-3">
+                          <SupportMessageList messages={msgs} />
+                        </div>
+                      </details>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          ) : null}
         </>
       )}
     </AppPageLayout>
