@@ -1,14 +1,11 @@
 import { Navigate } from 'react-router-dom'
+import { LoadingCentered } from '@/components/LoadingIndicator'
 import { useApp } from '@/context/AppProvider'
 
 export function HomeRedirect() {
   const { loading, tenantCompanyCount, platformRole } = useApp()
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-slate-500">
-        Indlæser…
-      </div>
-    )
+    return <LoadingCentered minHeight="min-h-screen" srLabel="Indlæser" />
   }
   if (tenantCompanyCount === 0) {
     if (platformRole) {

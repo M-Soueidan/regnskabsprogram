@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useMatch, useNavigate, useParams } from 'react-router-dom'
+import { LoadingCentered } from '@/components/LoadingIndicator'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
 import { logActivity } from '@/lib/activity'
@@ -237,7 +238,13 @@ export function InvoiceEditorPage() {
   }
 
   if (loading) {
-    return <p className="text-slate-500">Indlæser faktura…</p>
+    return (
+      <LoadingCentered
+        minHeight="min-h-[min(60vh,420px)]"
+        caption="Indlæser faktura…"
+        srLabel="Indlæser faktura"
+      />
+    )
   }
 
   return (

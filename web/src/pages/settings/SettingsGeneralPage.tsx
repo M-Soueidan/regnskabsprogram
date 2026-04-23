@@ -10,8 +10,8 @@ import {
   normalizeCvrDigits,
 } from '@/lib/cvr'
 import {
-  getHideTrialPaymentCtaDuringTrial,
-  setHideTrialPaymentCtaDuringTrial,
+  getHideTrialBannerDuringTrial,
+  setHideTrialBannerDuringTrial,
 } from '@/lib/trialPaymentUiPreference'
 
 export function SettingsGeneralPage() {
@@ -24,10 +24,18 @@ export function SettingsGeneralPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [hideTrialPaymentCta, setHideTrialPaymentCta] = useState(
-    getHideTrialPaymentCtaDuringTrial,
-  )
+  const [hideTrialBanner, setHideTrialBanner] = useState(getHideTrialBannerDuringTrial)
   const ok = subscriptionOk(subscription)
+
+  useEffect(() => {
+    const sync = () => setHideTrialBanner(getHideTrialBannerDuringTrial())
+    window.addEventListener('storage', sync)
+    window.addEventListener('bilago:trial-banner-pref', sync)
+    return () => {
+      window.removeEventListener('storage', sync)
+      window.removeEventListener('bilago:trial-banner-pref', sync)
+    }
+  }, [])
 
   useEffect(() => {
     if (currentCompany) {
@@ -200,22 +208,22 @@ export function SettingsGeneralPage() {
         <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-medium text-slate-900">Prøveperiode</h2>
           <p className="text-sm text-slate-600">
-            Under gratis prøveperiode vises knappen «Tilføj betaling» i det lilla banner øverst. Du kan skjule den,
-            indtil prøveperioden er udløbet — betaling kan altid tilføjes her under Abonnement.
+            Det lilla banner øverst kan skjules (også via «Skjul banner» i banneret). Den sidste dag før
+            udløb vises det igen automatisk. Abonnement kan altid tilføjes herunder.
           </p>
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
               className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600"
-              checked={hideTrialPaymentCta}
+              checked={hideTrialBanner}
               onChange={(e) => {
                 const v = e.target.checked
-                setHideTrialPaymentCtaDuringTrial(v)
-                setHideTrialPaymentCta(v)
+                setHideTrialBannerDuringTrial(v)
+                setHideTrialBanner(v)
               }}
             />
             <span className="text-sm text-slate-800">
-              Skjul «Tilføj betaling» i topbanneret, mens der er mindst én dag tilbage af prøveperioden
+              Skjul prøvebanner øverst, mens der er mindst én dag tilbage af prøveperioden
             </span>
           </label>
         </div>

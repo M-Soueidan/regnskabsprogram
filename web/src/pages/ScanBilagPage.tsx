@@ -269,28 +269,34 @@ export function ScanBilagPage() {
       setPhase('review')
       return
     }
-    const { error: dbErr } = await supabase.from('vouchers').insert({
-      company_id: currentCompany.id,
-      storage_path: path,
-      filename: fname,
-      mime_type: 'image/jpeg',
-      title: title || fname,
-      category: 'Scan',
-      notes: notes || null,
-      uploaded_by: user.id,
-      expense_date: expenseDate,
-      gross_cents: grossCents,
-      net_cents: netCents,
-      vat_cents: vatCents,
-      vat_rate: rate,
-    })
+    const { data: inserted, error: dbErr } = await supabase
+      .from('vouchers')
+      .insert({
+        company_id: currentCompany.id,
+        storage_path: path,
+        filename: fname,
+        mime_type: 'image/jpeg',
+        title: title || fname,
+        category: 'Scan',
+        notes: notes || null,
+        uploaded_by: user.id,
+        expense_date: expenseDate,
+        gross_cents: grossCents,
+        net_cents: netCents,
+        vat_cents: vatCents,
+        vat_rate: rate,
+      })
+      .select('id')
+      .single()
     if (dbErr) {
       setSaveError(dbErr.message)
       setPhase('review')
       return
     }
-    await logActivity(currentCompany.id, 'voucher_scan', `Bilag scannet: ${title || fname}`)
-    navigate('/app/vouchers')
+    await logActivity(currentCompany.id, 'voucher_scan', `Bilag scannet: ${title || fname}`, {
+      voucher_id: inserted.id,
+    })
+    navigate(`/app/vouchers?voucher=${encodeURIComponent(inserted.id)}`)
   }
 
   if (!currentCompany) {

@@ -436,17 +436,37 @@ export function DashboardPage() {
                 return (
                   <li
                     key={a.id}
-                    className={`border-b border-slate-100 pb-3 last:border-0 ${
-                      credit ? 'border-l-2 border-l-rose-500 pl-2' : ''
-                    }`}
+                    className={`border-b border-slate-100 pb-3 last:border-0 last:pb-0`}
                   >
                     <div
-                      className={`font-medium ${credit ? 'text-rose-900' : 'text-slate-800'}`}
+                      className={
+                        credit
+                          ? 'rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 shadow-sm'
+                          : ''
+                      }
                     >
-                      {activityDisplayTitle(a)}
-                    </div>
-                    <div className={`text-xs ${credit ? 'text-rose-800/80' : 'text-slate-500'}`}>
-                      {formatDateTime(a.created_at)}
+                      <div className="flex items-start gap-2">
+                        {credit ? (
+                          <span
+                            className="mt-0.5 shrink-0 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+                            title="Kreditnota"
+                          >
+                            Kredit
+                          </span>
+                        ) : null}
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className={`font-semibold ${credit ? 'text-rose-950' : 'text-slate-800'}`}
+                          >
+                            {activityDisplayTitle(a)}
+                          </div>
+                          <div
+                            className={`mt-0.5 text-xs ${credit ? 'text-rose-800/90' : 'text-slate-500'}`}
+                          >
+                            {formatDateTime(a.created_at)}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </li>
                 )
@@ -457,7 +477,7 @@ export function DashboardPage() {
             <div className="mt-4 border-t border-slate-100 pt-3">
               <Link
                 to="/app/activity"
-                className="text-sm font-medium text-sky-700 hover:text-sky-900"
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
               >
                 Se hele aktivitetsloggen
               </Link>
@@ -485,11 +505,11 @@ function DashTile({
   return (
     <Link
       to={to}
-      className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition active:scale-[0.99] hover:border-sky-200 hover:shadow-md"
+      className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition active:scale-[0.99] hover:border-indigo-200 hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-1">
         <span className="text-sm font-semibold text-slate-900">{title}</span>
-        <span className="text-slate-300 group-hover:text-sky-600">›</span>
+        <span className="text-slate-300 group-hover:text-indigo-600">›</span>
       </div>
       <div className="mt-1 text-xs text-slate-500">{subtitle}</div>
       <div className={`mt-3 text-lg font-bold tabular-nums leading-tight ${valueClass}`}>{value}</div>

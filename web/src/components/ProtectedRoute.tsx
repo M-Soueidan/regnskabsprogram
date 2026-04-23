@@ -1,14 +1,11 @@
 import { Navigate, Outlet } from 'react-router-dom'
+import { LoadingCentered } from '@/components/LoadingIndicator'
 import { useApp } from '@/context/AppProvider'
 
 export function ProtectedRoute() {
   const { session, loading } = useApp()
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-slate-500">
-        Indlæser…
-      </div>
-    )
+    return <LoadingCentered minHeight="min-h-screen" srLabel="Indlæser" />
   }
   if (!session) {
     return <Navigate to="/login" replace />

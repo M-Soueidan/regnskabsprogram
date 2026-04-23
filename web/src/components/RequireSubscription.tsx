@@ -1,14 +1,11 @@
 import { Navigate, Outlet } from 'react-router-dom'
+import { LoadingCentered } from '@/components/LoadingIndicator'
 import { useApp, subscriptionOk } from '@/context/AppProvider'
 
 export function RequireSubscription() {
   const { currentCompany, subscription, loading } = useApp()
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-slate-500">
-        Indlæser…
-      </div>
-    )
+    return <LoadingCentered minHeight="min-h-screen" srLabel="Indlæser" />
   }
   if (!currentCompany) {
     return <Navigate to="/onboarding" replace />

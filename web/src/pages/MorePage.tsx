@@ -109,54 +109,56 @@ export function MorePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Mere</h1>
+    <div className="-mx-4 flex flex-col gap-4 pb-6 md:-mx-8">
+      <h1 className="px-4 text-2xl font-semibold text-slate-900 md:px-8">Mere</h1>
 
-      {currentCompany ? (
-        <Link
-          to="/app/settings"
-          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-        >
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-            <BuildingIcon className="h-6 w-6" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-base font-semibold text-slate-900">
-              {currentCompany.name}
+      <div className="border-y border-slate-200 bg-white">
+        {currentCompany ? (
+          <Link
+            to="/app/settings"
+            className="flex items-center gap-4 border-b border-slate-100 px-4 py-4 transition hover:bg-slate-50 md:px-8"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+              <BuildingIcon className="h-6 w-6" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-base font-semibold text-slate-900">
+                {currentCompany.name}
+              </div>
+              <div className="truncate text-xs text-slate-500">
+                {currentCompany.cvr ? `CVR ${currentCompany.cvr} · ` : ''}
+                {currentRole ? ROLE_LABELS[currentRole] : ''}
+              </div>
             </div>
-            <div className="truncate text-xs text-slate-500">
-              {currentCompany.cvr ? `CVR ${currentCompany.cvr} · ` : ''}
-              {currentRole ? ROLE_LABELS[currentRole] : ''}
-            </div>
-          </div>
-          <ChevronIcon className="h-4 w-4 text-slate-400" />
-        </Link>
-      ) : null}
+            <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400" />
+          </Link>
+        ) : null}
 
-      <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {items.map((i) => (
-          <li key={i.to}>
-            <Link
-              to={i.to}
-              className="flex items-center gap-4 px-5 py-4 text-slate-800 hover:bg-slate-50"
-            >
-              <span className="relative inline-flex shrink-0">
-                <i.icon className="h-5 w-5 text-indigo-600" />
-                {i.to === '/app/support' && unreadCount > 0 ? (
-                  <span className="absolute -right-2 -top-2 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white shadow-sm">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                ) : null}
-              </span>
-              <span className="flex-1 text-sm font-semibold">{i.label}</span>
-              <ChevronIcon className="h-4 w-4 text-slate-400" />
-            </Link>
-          </li>
-        ))}
-      </ul>
+        <ul className="divide-y divide-slate-100">
+          {items.map((i) => (
+            <li key={i.to}>
+              <Link
+                to={i.to}
+                className="flex items-center gap-4 px-4 py-4 text-slate-800 transition hover:bg-slate-50 md:px-8"
+              >
+                <span className="relative inline-flex shrink-0">
+                  <i.icon className="h-5 w-5 text-indigo-600" />
+                  {i.to === '/app/support' && unreadCount > 0 ? (
+                    <span className="absolute -right-2 -top-2 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white shadow-sm">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="flex-1 text-sm font-semibold">{i.label}</span>
+                <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
+      <div className="border-y border-slate-200 bg-white px-4 py-5 md:px-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs uppercase tracking-wide text-slate-400">
               Logget ind som
@@ -168,7 +170,7 @@ export function MorePage() {
           <button
             type="button"
             onClick={() => void logout()}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             <LogoutIcon className="h-4 w-4" />
             Log ud

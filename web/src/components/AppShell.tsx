@@ -8,7 +8,10 @@ import { logoutToLanding } from '@/lib/logoutToLanding'
 import { supabase } from '@/lib/supabase'
 import { BrandMark } from '@/components/BrandMark'
 import { formatDateTime } from '@/lib/format'
-import { getHideTrialPaymentCtaDuringTrial } from '@/lib/trialPaymentUiPreference'
+import {
+  getHideTrialBannerDuringTrial,
+  setHideTrialBannerDuringTrial,
+} from '@/lib/trialPaymentUiPreference'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
 import { RegisterPushNotifications } from '@/components/RegisterPushNotifications'
 import { useSupportUnread } from '@/context/SupportUnreadContext'
@@ -280,10 +283,10 @@ function TrialBanner({
   useEffect(() => {
     const bump = () => setPrefTick((n) => n + 1)
     window.addEventListener('storage', bump)
-    window.addEventListener('bilago:trial-payment-cta-pref', bump)
+    window.addEventListener('bilago:trial-banner-pref', bump)
     return () => {
       window.removeEventListener('storage', bump)
-      window.removeEventListener('bilago:trial-payment-cta-pref', bump)
+      window.removeEventListener('bilago:trial-banner-pref', bump)
     }
   }, [])
 
@@ -291,22 +294,30 @@ function TrialBanner({
     ? Math.max(0, Math.ceil((new Date(periodEnd).getTime() - Date.now()) / 86_400_000))
     : null
 
-  const hideCtaWhileTrialRunning =
-    getHideTrialPaymentCtaDuringTrial() && daysLeft !== null && daysLeft > 0
+  /** Under sidste dag (0 tilbage) eller ukendt slutdato: banner vises altid. */
+  const canDismissBanner = daysLeft !== null && daysLeft > 0
+  const bannerHiddenByPref =
+    getHideTrialBannerDuringTrial() && canDismissBanner
+
+  if (bannerHiddenByPref) return null
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
-      <span>
+      <span className="min-w-0 flex-1">
         Gratis prøveperiode
         {daysLeft !== null ? ` — ${daysLeft} ${daysLeft === 1 ? 'dag' : 'dage'} tilbage` : null}
         . Tilføj betaling for at fortsætte efter perioden slutter.
-        {hideCtaWhileTrialRunning ? (
-          <span className="mt-1 block text-xs text-indigo-800/90">
-            Knappen er skjult under prøveperioden (kan ændres under Indstillinger → Generelt).
-          </span>
-        ) : null}
       </span>
-      {!hideCtaWhileTrialRunning ? (
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        {canDismissBanner ? (
+          <button
+            type="button"
+            className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-800 hover:bg-indigo-100/80"
+            onClick={() => setHideTrialBannerDuringTrial(true)}
+          >
+            Skjul banner
+          </button>
+        ) : null}
         <button
           type="button"
           className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
@@ -314,7 +325,7 @@ function TrialBanner({
         >
           Tilføj betaling
         </button>
-      ) : null}
+      </div>
     </div>
   )
 }

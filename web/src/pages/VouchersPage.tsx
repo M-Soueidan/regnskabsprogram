@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { DesktopListCardsToggle } from '@/components/DesktopListCardsToggle'
 import { useDesktopListViewPreference } from '@/hooks/useDesktopListViewPreference'
 import { supabase } from '@/lib/supabase'
@@ -20,6 +20,7 @@ const VOUCHERS_VIEW_KEY = 'bilago:vouchersDesktopView'
 
 export function VouchersPage() {
   const { currentCompany, user } = useApp()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [desktopView, setDesktopView] = useDesktopListViewPreference(VOUCHERS_VIEW_KEY, 'list')
   const [rows, setRows] = useState<Voucher[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -46,6 +47,30 @@ export function VouchersPage() {
   useEffect(() => {
     void load()
   }, [currentCompany])
+
+  const voucherHighlight = searchParams.get('voucher')
+  useEffect(() => {
+    if (!voucherHighlight || loading) return
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(`voucher-row-${voucherHighlight}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-2', 'transition-shadow')
+        window.setTimeout(() => {
+          el.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-2')
+        }, 2200)
+      }
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('voucher')
+          return next
+        },
+        { replace: true },
+      )
+    }, 80)
+    return () => window.clearTimeout(t)
+  }, [voucherHighlight, loading, setSearchParams])
 
   const filteredRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -129,28 +154,34 @@ export function VouchersPage() {
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
-    const { error: dbErr } = await supabase.from('vouchers').insert({
-      company_id: currentCompany.id,
-      storage_path: path,
-      filename: file.name,
-      mime_type: file.type || null,
-      title: titleForDb,
-      category: null,
-      notes: notesForDb,
-      uploaded_by: user.id,
-      expense_date: expenseDateForDb,
-      gross_cents: grossCents,
-      net_cents: netCents,
-      vat_cents: vatCents,
-      vat_rate: rate,
-    })
+    const { data: inserted, error: dbErr } = await supabase
+      .from('vouchers')
+      .insert({
+        company_id: currentCompany.id,
+        storage_path: path,
+        filename: file.name,
+        mime_type: file.type || null,
+        title: titleForDb,
+        category: null,
+        notes: notesForDb,
+        uploaded_by: user.id,
+        expense_date: expenseDateForDb,
+        gross_cents: grossCents,
+        net_cents: netCents,
+        vat_cents: vatCents,
+        vat_rate: rate,
+      })
+      .select('id')
+      .single()
     if (dbErr) {
       setError(dbErr.message)
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
-    await logActivity(currentCompany.id, 'voucher_upload', `Bilag uploadet: ${file.name}`)
+    await logActivity(currentCompany.id, 'voucher_upload', `Bilag uploadet: ${file.name}`, {
+      voucher_id: inserted.id,
+    })
     if (fileInputRef.current) fileInputRef.current.value = ''
     setUploading(false)
     await load()
@@ -342,6 +373,7 @@ export function VouchersPage() {
             return (
               <div
                 key={v.id}
+                id={`voucher-row-${v.id}`}
                 role="button"
                 tabIndex={0}
                 onClick={() => openSigned(v)}
@@ -408,7 +440,7 @@ export function VouchersPage() {
               </tr>
             ) : (
               filteredRows.map((v) => (
-                <tr key={v.id} className="border-t border-slate-100">
+                <tr key={v.id} id={`voucher-row-${v.id}`} className="border-t border-slate-100">
                   <td className="px-4 py-3 text-slate-600">
                     {v.expense_date
                       ? formatDateOnly(v.expense_date)

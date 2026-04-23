@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router-dom'
+import { LoadingCentered } from '@/components/LoadingIndicator'
 import { useApp } from '@/context/AppProvider'
 import { PlatformShell } from '@/components/PlatformShell'
 
@@ -9,11 +10,7 @@ import { PlatformShell } from '@/components/PlatformShell'
 export function ProtectedPlatformRoute() {
   const { loading, platformRole } = useApp()
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-slate-500">
-        Indlæser…
-      </div>
-    )
+    return <LoadingCentered minHeight="min-h-screen" srLabel="Indlæser" />
   }
   if (!platformRole) {
     return <Navigate to="/home" replace />

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { Link, useMatch, useNavigate, useSearchParams } from 'react-router-dom'
+import { LoadingCentered, LoadingSpinner } from '@/components/LoadingIndicator'
 import { useApp } from '@/context/AppProvider'
 import { logActivity } from '@/lib/activity'
 import { functionsHttpErrorMessage } from '@/lib/edge'
@@ -838,9 +839,12 @@ export function InvoiceWizardPage() {
   }
   if (loading) {
     return (
-      <p className="text-slate-500">
-        {isCreditNotaFlow ? 'Indlæser kreditnota…' : 'Indlæser faktura…'}
-      </p>
+      <LoadingCentered
+        className="flex-1"
+        minHeight="min-h-[min(65vh,480px)]"
+        caption={isCreditNotaFlow ? 'Indlæser kreditnota…' : 'Indlæser faktura…'}
+        srLabel={isCreditNotaFlow ? 'Indlæser kreditnota' : 'Indlæser faktura'}
+      />
     )
   }
 
@@ -1397,7 +1401,11 @@ function ProductsTab({
       </button>
 
       {popularLoading ? (
-        <p className="text-xs text-slate-500">Indlæser forslag…</p>
+        <div className="flex items-center gap-2 py-1" role="status" aria-live="polite">
+          <span className="sr-only">Indlæser forslag</span>
+          <LoadingSpinner size="sm" />
+          <span className="text-xs text-slate-500">Henter forslag…</span>
+        </div>
       ) : null}
 
       {!popularLoading && companyId && companyPopular.length > 0 ? (

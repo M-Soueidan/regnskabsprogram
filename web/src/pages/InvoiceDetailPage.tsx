@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import clsx from 'clsx'
+import { LoadingCentered } from '@/components/LoadingIndicator'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
 import { logActivity } from '@/lib/activity'
@@ -216,9 +217,11 @@ export function InvoiceDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-slate-500">
-        Indlæser…
-      </div>
+      <LoadingCentered
+        className="flex flex-1"
+        minHeight="min-h-[min(70vh,520px)]"
+        srLabel="Indlæser faktura"
+      />
     )
   }
 
