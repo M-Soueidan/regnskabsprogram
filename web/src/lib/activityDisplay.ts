@@ -21,9 +21,11 @@ export function activityLooksLikeCreditNote(a: Activity): boolean {
 /** Vist titel — retter ældre rækker der kun har «Faktura» i titel men kredit-metadata. */
 export function activityDisplayTitle(a: Activity): string {
   const m = metaObject(a.meta)
-  const inferredCredit =
-    m?.is_credit_note === true ||
-    (typeof m.credited_invoice_id === 'string' && m.credited_invoice_id.length > 0)
+  const inferredCredit = Boolean(
+    m &&
+      (m.is_credit_note === true ||
+        (typeof m.credited_invoice_id === 'string' && m.credited_invoice_id.length > 0)),
+  )
 
   if (
     inferredCredit &&
