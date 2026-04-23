@@ -9,6 +9,7 @@ import { HomeRedirect } from '@/components/HomeRedirect'
 import { LandingPage } from '@/pages/LandingPage'
 import { SupportHoursPage } from '@/pages/SupportHoursPage'
 import { FeaturesPage } from '@/pages/FeaturesPage'
+import { FeatureDetailPage } from '@/pages/FeatureDetailPage'
 import { PricingPage } from '@/pages/PricingPage'
 import { FaqPage } from '@/pages/FaqPage'
 import {
@@ -99,6 +100,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/funktioner" element={<FeaturesPage />} />
+          <Route path="/funktioner/:slug" element={<FeatureDetailPage />} />
           <Route path="/priser" element={<PricingPage />} />
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/handelsbetingelser" element={<HandelsbetingelserPage />} />

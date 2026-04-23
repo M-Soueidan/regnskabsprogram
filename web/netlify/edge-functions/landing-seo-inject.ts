@@ -1,6 +1,7 @@
 // Netlify Edge (Deno). Erstatter <head> SEO/OG så link-forhåndsvisning (Facebook, WhatsApp, m.fl.)
 // ser uploadet billede og tekster uden at køre JavaScript.
 import { mergeLandingSeo } from './mergeLandingSeo.ts'
+import { FEATURE_SEO, featureSlugFromPath } from './featureSeo.ts'
 import type { Config, Context } from '@netlify/edge-functions'
 
 function escapeText(s: string) {
@@ -185,12 +186,33 @@ export default async (request: Request, context: Context) => {
   } catch {
     return buildHtmlResponse(res, body)
   }
-  const seo = mergeLandingSeo(raw)
+  const baseSeo = mergeLandingSeo(raw)
+  const seo = overlayFeatureSeo(baseSeo, url.pathname)
   const newHtml = injectSeoInHeadHtml(body, seo, publicPageUrl)
   if (newHtml === body) {
     return buildHtmlResponse(res, body)
   }
   return buildHtmlResponse(res, newHtml)
+}
+
+/**
+ * Hvis URL'en er /funktioner/:slug, overskriver vi titel/beskrivelse/keywords
+ * fra base-SEO med feature-specifikke tekster. OG-billedet og andre globale
+ * felter beholdes fra landing-SEO.
+ */
+function overlayFeatureSeo(base: Seo, pathname: string): Seo {
+  const slug = featureSlugFromPath(pathname)
+  if (!slug) return base
+  const f = FEATURE_SEO[slug]
+  if (!f) return base
+  return {
+    ...base,
+    document_title: `${f.title} · Bilago`,
+    meta_description: f.description,
+    meta_keywords: f.keywords ?? base.meta_keywords,
+    og_title: f.title,
+    og_description: f.description,
+  }
 }
 
 function buildHtmlResponse(original: Response, body: string) {

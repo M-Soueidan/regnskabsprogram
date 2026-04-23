@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
+import { marketingFeatureCards } from '@/marketing/featureCards'
 
 type IconProps = { className?: string }
 
@@ -154,22 +155,49 @@ export function MarketingMobileBottomNav() {
           <div className="absolute inset-x-0 bottom-0 max-h-[min(85vh,32rem)] overflow-y-auto rounded-t-3xl bg-white p-5 pb-[calc(env(safe-area-inset-bottom)+20px)] shadow-2xl">
             <div className="mx-auto h-1 w-10 rounded-full bg-slate-200" />
             <h2 className="mt-4 text-center text-sm font-semibold text-slate-900">Mere</h2>
-            <ul className="mt-4 space-y-1">
+
+            <p className="mt-4 px-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Produkt
+            </p>
+            <ul className="mt-2 space-y-0.5">
+              {marketingFeatureCards.map((f) => (
+                <li key={f.slug}>
+                  <button
+                    type="button"
+                    onClick={() => go(`/funktioner/${f.slug}`)}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  >
+                    <f.icon className="h-5 w-5 shrink-0 text-indigo-600" />
+                    <span className="flex-1">{f.title}</span>
+                    {f.comingSoon ? (
+                      <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                        Snart
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              ))}
               <li>
                 <button
                   type="button"
                   onClick={() => go('/funktioner')}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-indigo-600 hover:bg-indigo-50/60"
                 >
-                  <DocumentIcon className="h-5 w-5 shrink-0 text-indigo-600" />
-                  Funktioner
+                  <DocumentIcon className="h-5 w-5 shrink-0" />
+                  Alle funktioner
                 </button>
               </li>
+            </ul>
+
+            <p className="mt-4 px-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Andet
+            </p>
+            <ul className="mt-2 space-y-0.5">
               <li>
                 <button
                   type="button"
                   onClick={() => go('/support-tider')}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
                 >
                   <HeadsetIcon className="h-5 w-5 shrink-0 text-indigo-600" />
                   Support og åbningstider
@@ -179,7 +207,7 @@ export function MarketingMobileBottomNav() {
                 <button
                   type="button"
                   onClick={() => go('/app/vat')}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
                 >
                   <PercentIcon className="h-5 w-5 shrink-0 text-indigo-600" />
                   Moms (i appen)
