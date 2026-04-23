@@ -400,9 +400,9 @@ export function InvoiceDetailPage() {
   })()
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-slate-50 pb-8 max-md:-mx-5 max-md:-mt-5">
+    <div className="-mx-5 -mt-5 flex min-h-0 flex-1 flex-col bg-slate-50 pb-8 md:-mx-10 md:-mt-9">
       <header className="sticky top-0 z-10 w-full border-b border-slate-200/90 bg-white pb-0 shadow-sm max-md:pt-[calc(env(safe-area-inset-top)+0.5rem)] md:pt-3">
-        <div className="flex w-full items-center gap-2 pl-3 pr-3 md:mx-auto md:max-w-lg md:px-4 md:pt-0">
+        <div className="flex w-full items-center gap-2 pl-3 pr-3 md:px-4 md:pt-0">
           <button
             type="button"
             onClick={() => navigate('/app/invoices')}
@@ -416,7 +416,7 @@ export function InvoiceDetailPage() {
         </div>
 
         <nav
-          className="mt-3 flex w-full border-b border-slate-200 md:mx-auto md:max-w-lg"
+          className="mt-3 flex w-full border-b border-slate-200"
           aria-label="Fakturafaner"
         >
           {(
@@ -447,7 +447,7 @@ export function InvoiceDetailPage() {
         </nav>
       </header>
 
-      <div className="mx-auto w-full max-w-lg flex-1 px-5 pt-5 md:px-4">
+      <div className="w-full flex-1 px-5 pt-5 md:px-10">
         {notice ? (
           <p className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/80 px-3 py-2.5 text-sm text-indigo-950">
             {notice}

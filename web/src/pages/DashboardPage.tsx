@@ -308,8 +308,11 @@ export function DashboardPage() {
             aria-hidden
           />
           <div className="border-b border-slate-100 px-4 py-2 md:px-8 md:py-3.5">
-            <p className="text-[11px] font-semibold uppercase leading-snug tracking-wide text-slate-500 md:text-xs">
-              Nøgletal · ekskl. annullerede fakturaer
+            <p
+              className="text-[11px] font-semibold uppercase leading-snug tracking-wide text-slate-500 md:text-xs"
+              title="Annullerede fakturaer indgår ikke i beregningen"
+            >
+              Nøgletal
             </p>
           </div>
           <div className="grid divide-y divide-slate-100 md:grid-cols-3 md:divide-x md:divide-y-0">
