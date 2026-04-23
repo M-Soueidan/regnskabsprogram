@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import clsx from 'clsx'
 import {
   Area,
   AreaChart,
@@ -267,68 +268,88 @@ export function DashboardPage() {
   return (
     <div className="space-y-5 md:-mx-8 md:w-[calc(100%+4rem)]">
       <div className="-mx-4 -mt-2 px-4 pb-2 pt-1 md:mx-0 md:mt-0 md:px-0 md:pb-0 md:pt-0">
-        <p className="text-center text-sm font-semibold tracking-wide text-slate-900">
-          {currentCompany.name}
-        </p>
-        <p className="mt-0.5 text-center text-xs text-slate-500">Oversigt</p>
-
-        <div className="mx-auto mt-3 w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:mx-0 md:max-w-none">
-          <div className="flex rounded-full bg-slate-100 p-1">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-lg font-semibold tracking-tight text-slate-900 md:text-xl">
+              {currentCompany.name}
+            </p>
+            <p className="mt-0.5 text-sm text-slate-500">Beløb og udvikling for valgt periode</p>
+          </div>
+          <div className="flex w-full shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:w-auto">
             <button
               type="button"
               onClick={() => setPeriodMode('month')}
-              className={`flex-1 rounded-full py-2 text-center text-xs font-semibold transition ${
+              className={clsx(
+                'min-h-[40px] flex-1 rounded-md px-4 py-2 text-center text-xs font-semibold transition sm:flex-none',
                 periodMode === 'month'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-800'
-              }`}
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-white/90 hover:text-slate-900',
+              )}
             >
               {monthTabLabel}
             </button>
             <button
               type="button"
               onClick={() => setPeriodMode('30d')}
-              className={`flex-1 rounded-full py-2 text-center text-xs font-semibold transition ${
+              className={clsx(
+                'min-h-[40px] flex-1 rounded-md px-4 py-2 text-center text-xs font-semibold transition sm:flex-none',
                 periodMode === '30d'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-800'
-              }`}
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-white/90 hover:text-slate-900',
+              )}
             >
               30 dage
             </button>
           </div>
+        </div>
 
-          <div className="mt-4 space-y-0 divide-y divide-slate-100">
-            <div className="flex items-center justify-between gap-3 pb-3">
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-slate-500">Faktureret</div>
-                <div className={`mt-1 truncate text-2xl font-bold tabular-nums ${signedAmountClass(invoicedPos)}`}>
-                  {formatDkk(invoicedPos)}
-                </div>
+        <div className="mt-5 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div
+            className="h-1 bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-500"
+            aria-hidden
+          />
+          <div className="border-b border-slate-100 px-4 py-2.5 md:px-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Nøgletal · ekskl. annullerede fakturaer
+            </p>
+          </div>
+          <div className="grid divide-y divide-slate-100 md:grid-cols-3 md:divide-x md:divide-y-0">
+            <div className="flex flex-col gap-2 p-5 md:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Faktureret
+                </span>
+                <MiniBars values={sparks.inc} color={emerald} />
               </div>
-              <MiniBars values={sparks.inc} color={emerald} />
+              <div
+                className={`text-2xl font-bold tabular-nums tracking-tight md:text-3xl ${signedAmountClass(invoicedPos)}`}
+              >
+                {formatDkk(invoicedPos)}
+              </div>
             </div>
-            <div className="flex items-center justify-between gap-3 py-3">
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-slate-500">Kreditnotaer</div>
-                <div
-                  className={`mt-1 text-2xl font-bold tabular-nums ${
-                    creditAbs > 0 ? 'text-rose-600' : 'text-slate-400'
-                  }`}
-                >
-                  {formatDkk(creditAbs)}
-                </div>
+            <div className="flex flex-col gap-2 p-5 md:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Kreditnotaer
+                </span>
+                <MiniBars values={sparks.cred} color={rose} />
               </div>
-              <MiniBars values={sparks.cred} color={rose} />
+              <div
+                className={`text-2xl font-bold tabular-nums tracking-tight md:text-3xl ${
+                  creditAbs > 0 ? 'text-rose-600' : 'text-slate-400'
+                }`}
+              >
+                {formatDkk(creditAbs)}
+              </div>
             </div>
-            <div className="flex items-center justify-between gap-3 pt-3">
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-slate-500">Netto</div>
-                <div className={`mt-1 truncate text-2xl font-bold tabular-nums ${signedAmountClass(net)}`}>
-                  {formatDkk(net)}
-                </div>
+            <div className="flex flex-col gap-2 p-5 md:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Netto</span>
+                <MiniBars values={netSpark} color={slateBar} />
               </div>
-              <MiniBars values={netSpark} color={slateBar} />
+              <div className={`text-2xl font-bold tabular-nums tracking-tight md:text-3xl ${signedAmountClass(net)}`}>
+                {formatDkk(net)}
+              </div>
             </div>
           </div>
         </div>
@@ -396,9 +417,9 @@ export function DashboardPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
                   <defs>
-                    <linearGradient id="dashG" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0} />
+                    <linearGradient id="bilagoDashArea" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#4f46e5" stopOpacity={0.28} />
+                      <stop offset="100%" stopColor="#4f46e5" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -415,8 +436,8 @@ export function DashboardPage() {
                   <Area
                     type="monotone"
                     dataKey="brutto"
-                    stroke="#0284c7"
-                    fill="url(#dashG)"
+                    stroke="#4338ca"
+                    fill="url(#bilagoDashArea)"
                     strokeWidth={2}
                   />
                 </AreaChart>
