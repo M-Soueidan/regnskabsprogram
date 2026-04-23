@@ -36,6 +36,7 @@ import { SettingsInvoicePage } from '@/pages/settings/SettingsInvoicePage'
 import { MembersPage } from '@/pages/MembersPage'
 import { VatPage } from '@/pages/VatPage'
 import { MorePage } from '@/pages/MorePage'
+import { AppHelpPage } from '@/pages/AppHelpPage'
 import { SupportPage } from '@/pages/SupportPage'
 import { PlatformDashboardPage } from '@/pages/platform/PlatformDashboardPage'
 import { PlatformCompaniesPage } from '@/pages/platform/PlatformCompaniesPage'
@@ -170,6 +171,7 @@ export default function App() {
                 <Route path="invoice" element={<SettingsInvoicePage />} />
               </Route>
               <Route path="/app/more" element={<MorePage />} />
+              <Route path="/app/hjaelp" element={<AppHelpPage />} />
               <Route path="/app/members" element={<MembersPage />} />
               <Route element={<RequireSubscription />}>
                 <Route path="/app/support" element={<SupportPage />} />

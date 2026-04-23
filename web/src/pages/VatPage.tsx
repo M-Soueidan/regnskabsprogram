@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import clsx from 'clsx'
 import { AppPageLayout } from '@/components/AppPageLayout'
+import { DesktopListCardsToggle } from '@/components/DesktopListCardsToggle'
 import { SortableTh } from '@/components/SortableTh'
 import { nextColumnSortState, type ColumnSortDir } from '@/lib/tableSort'
+import { useDesktopListViewPreference } from '@/hooks/useDesktopListViewPreference'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
-import { copenhagenYmd, copenhagenYear, formatDkk } from '@/lib/format'
+import { copenhagenYmd, copenhagenYear, formatDate, formatDkk } from '@/lib/format'
 
 type Period = { label: string; from: string; to: string }
 
@@ -47,6 +51,12 @@ type VoucherRow = {
 
 type VatInvSortKey = 'number' | 'customer' | 'date' | 'net' | 'vat' | 'gross'
 type VatVouSortKey = 'title' | 'category' | 'date' | 'net' | 'vat' | 'gross'
+
+const VAT_DESKTOP_VIEW_KEY = 'bilago:vatDesktopView'
+
+function voucherDetailHref(voucherId: string) {
+  return `/app/vouchers?voucher=${encodeURIComponent(voucherId)}`
+}
 
 function sortVatInvoices(list: InvoiceRow[], key: VatInvSortKey, dir: ColumnSortDir): InvoiceRow[] {
   const mul = dir === 'asc' ? 1 : -1
@@ -93,6 +103,7 @@ function sortVatVouchers(list: VoucherRow[], key: VatVouSortKey, dir: ColumnSort
 }
 
 export function VatPage() {
+  const navigate = useNavigate()
   const { currentCompany } = useApp()
   const year = copenhagenYear()
   /* Vigtigt: stabilt dependency-array — ikke `years` som nyt [] hver render (gav useEffect-loop og blink). */
@@ -112,6 +123,7 @@ export function VatPage() {
   const [invSortDir, setInvSortDir] = useState<ColumnSortDir>('desc')
   const [vouSortKey, setVouSortKey] = useState<VatVouSortKey | null>(null)
   const [vouSortDir, setVouSortDir] = useState<ColumnSortDir>('desc')
+  const [desktopView, setDesktopView] = useDesktopListViewPreference(VAT_DESKTOP_VIEW_KEY, 'list')
 
   const sortedInvoices = useMemo(() => {
     if (invSortKey === null) return invoices
@@ -217,7 +229,8 @@ export function VatPage() {
             Beregn momsangivelse for en periode — klar til TastSelv Erhverv.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <DesktopListCardsToggle mode={desktopView} onChange={setDesktopView} />
           <select
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
             value={periodKey}
@@ -256,63 +269,120 @@ export function VatPage() {
         loading={loading}
       >
         {invoices.length > 0 ? (
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
-              <tr>
-                <SortableTh
-                  label="Fakturanr"
-                  isActive={invSortKey === 'number'}
-                  direction={invSortKey === 'number' ? invSortDir : null}
-                  onClick={() => onInvSort('number')}
-                />
-                <SortableTh
-                  label="Kunde"
-                  isActive={invSortKey === 'customer'}
-                  direction={invSortKey === 'customer' ? invSortDir : null}
-                  onClick={() => onInvSort('customer')}
-                />
-                <SortableTh
-                  label="Dato"
-                  isActive={invSortKey === 'date'}
-                  direction={invSortKey === 'date' ? invSortDir : null}
-                  onClick={() => onInvSort('date')}
-                />
-                <SortableTh
-                  label="Netto"
-                  isActive={invSortKey === 'net'}
-                  direction={invSortKey === 'net' ? invSortDir : null}
-                  onClick={() => onInvSort('net')}
-                  align="right"
-                />
-                <SortableTh
-                  label="Moms"
-                  isActive={invSortKey === 'vat'}
-                  direction={invSortKey === 'vat' ? invSortDir : null}
-                  onClick={() => onInvSort('vat')}
-                  align="right"
-                />
-                <SortableTh
-                  label="Brutto"
-                  isActive={invSortKey === 'gross'}
-                  direction={invSortKey === 'gross' ? invSortDir : null}
-                  onClick={() => onInvSort('gross')}
-                  align="right"
-                />
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <div
+              className={clsx(
+                'grid grid-cols-1 gap-3 p-4',
+                desktopView === 'list' ? 'md:hidden' : 'md:grid md:grid-cols-2 lg:grid-cols-3',
+              )}
+            >
               {sortedInvoices.map((r) => (
-                <tr key={r.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3 text-slate-700">{r.invoice_number}</td>
-                  <td className="px-4 py-3 text-slate-700">{r.customer_name}</td>
-                  <td className="px-4 py-3 text-slate-700">{r.issue_date}</td>
-                  <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.net_cents)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.vat_cents)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.gross_cents)}</td>
-                </tr>
+                <Link
+                  key={r.id}
+                  to={`/app/invoices/${r.id}`}
+                  className="block rounded-xl border border-slate-200 bg-slate-50/40 p-4 text-left shadow-sm outline-none transition hover:border-indigo-200 hover:bg-indigo-50/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-mono text-sm font-semibold text-indigo-700">
+                      {r.invoice_number}
+                    </span>
+                    <span className="text-xs text-slate-500">{formatDate(r.issue_date)}</span>
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-sm font-medium text-slate-900">{r.customer_name}</p>
+                  <dl className="mt-3 space-y-1.5 border-t border-slate-200/80 pt-3 text-xs">
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-slate-500">Netto</dt>
+                      <dd className="font-mono font-medium text-slate-800">{formatDkk(r.net_cents)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-slate-500">Moms</dt>
+                      <dd className="font-mono font-medium text-slate-800">{formatDkk(r.vat_cents)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-slate-500">Brutto</dt>
+                      <dd className="font-mono font-semibold text-slate-900">{formatDkk(r.gross_cents)}</dd>
+                    </div>
+                  </dl>
+                </Link>
               ))}
-            </tbody>
-          </table>
+            </div>
+            <div
+              className={clsx(
+                'hidden overflow-x-auto',
+                desktopView === 'list' && 'md:block',
+              )}
+            >
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+                  <tr>
+                    <SortableTh
+                      label="Fakturanr"
+                      isActive={invSortKey === 'number'}
+                      direction={invSortKey === 'number' ? invSortDir : null}
+                      onClick={() => onInvSort('number')}
+                    />
+                    <SortableTh
+                      label="Kunde"
+                      isActive={invSortKey === 'customer'}
+                      direction={invSortKey === 'customer' ? invSortDir : null}
+                      onClick={() => onInvSort('customer')}
+                    />
+                    <SortableTh
+                      label="Dato"
+                      isActive={invSortKey === 'date'}
+                      direction={invSortKey === 'date' ? invSortDir : null}
+                      onClick={() => onInvSort('date')}
+                    />
+                    <SortableTh
+                      label="Netto"
+                      isActive={invSortKey === 'net'}
+                      direction={invSortKey === 'net' ? invSortDir : null}
+                      onClick={() => onInvSort('net')}
+                      align="right"
+                    />
+                    <SortableTh
+                      label="Moms"
+                      isActive={invSortKey === 'vat'}
+                      direction={invSortKey === 'vat' ? invSortDir : null}
+                      onClick={() => onInvSort('vat')}
+                      align="right"
+                    />
+                    <SortableTh
+                      label="Brutto"
+                      isActive={invSortKey === 'gross'}
+                      direction={invSortKey === 'gross' ? invSortDir : null}
+                      onClick={() => onInvSort('gross')}
+                      align="right"
+                    />
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedInvoices.map((r) => (
+                    <tr
+                      key={r.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(`/app/invoices/${r.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          navigate(`/app/invoices/${r.id}`)
+                        }
+                      }}
+                      className="cursor-pointer border-t border-slate-100 transition hover:bg-indigo-50/50 focus-visible:bg-indigo-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-indigo-500"
+                    >
+                      <td className="px-4 py-3 text-slate-700">{r.invoice_number}</td>
+                      <td className="px-4 py-3 text-slate-700">{r.customer_name}</td>
+                      <td className="px-4 py-3 text-slate-700">{r.issue_date}</td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.net_cents)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.vat_cents)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.gross_cents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : null}
       </Section>
 
@@ -322,68 +392,132 @@ export function VatPage() {
         loading={loading}
       >
         {vouchers.length > 0 ? (
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
-              <tr>
-                <SortableTh
-                  label="Titel"
-                  isActive={vouSortKey === 'title'}
-                  direction={vouSortKey === 'title' ? vouSortDir : null}
-                  onClick={() => onVouSort('title')}
-                />
-                <SortableTh
-                  label="Kategori"
-                  isActive={vouSortKey === 'category'}
-                  direction={vouSortKey === 'category' ? vouSortDir : null}
-                  onClick={() => onVouSort('category')}
-                />
-                <SortableTh
-                  label="Dato"
-                  isActive={vouSortKey === 'date'}
-                  direction={vouSortKey === 'date' ? vouSortDir : null}
-                  onClick={() => onVouSort('date')}
-                />
-                <SortableTh
-                  label="Netto"
-                  isActive={vouSortKey === 'net'}
-                  direction={vouSortKey === 'net' ? vouSortDir : null}
-                  onClick={() => onVouSort('net')}
-                  align="right"
-                />
-                <SortableTh
-                  label="Moms"
-                  isActive={vouSortKey === 'vat'}
-                  direction={vouSortKey === 'vat' ? vouSortDir : null}
-                  onClick={() => onVouSort('vat')}
-                  align="right"
-                />
-                <SortableTh
-                  label="Brutto"
-                  isActive={vouSortKey === 'gross'}
-                  direction={vouSortKey === 'gross' ? vouSortDir : null}
-                  onClick={() => onVouSort('gross')}
-                  align="right"
-                />
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <div
+              className={clsx(
+                'grid grid-cols-1 gap-3 p-4',
+                desktopView === 'list' ? 'md:hidden' : 'md:grid md:grid-cols-2 lg:grid-cols-3',
+              )}
+            >
               {sortedVouchers.map((r) => (
-                <tr key={r.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3 text-slate-700">{r.title ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-700">{r.category ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-700">{r.expense_date}</td>
-                  <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.net_cents)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.vat_cents)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.gross_cents)}</td>
-                </tr>
+                <Link
+                  key={r.id}
+                  to={voucherDetailHref(r.id)}
+                  className="block rounded-xl border border-slate-200 bg-slate-50/40 p-4 text-left shadow-sm outline-none transition hover:border-amber-200 hover:bg-amber-50/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="min-w-0 flex-1 text-sm font-semibold text-slate-900">
+                      {r.title ?? '—'}
+                    </h3>
+                    <span className="shrink-0 text-xs text-slate-500">{formatDate(r.expense_date)}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600">
+                    <span className="font-medium text-slate-500">Kategori</span>{' '}
+                    {r.category ?? '—'}
+                  </p>
+                  <dl className="mt-3 space-y-1.5 border-t border-slate-200/80 pt-3 text-xs">
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-slate-500">Netto</dt>
+                      <dd className="font-mono font-medium text-slate-800">{formatDkk(r.net_cents)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-slate-500">Moms</dt>
+                      <dd className="font-mono font-medium text-slate-800">{formatDkk(r.vat_cents)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-slate-500">Brutto</dt>
+                      <dd className="font-mono font-semibold text-slate-900">{formatDkk(r.gross_cents)}</dd>
+                    </div>
+                  </dl>
+                </Link>
               ))}
-            </tbody>
-          </table>
+            </div>
+            <div
+              className={clsx(
+                'hidden overflow-x-auto',
+                desktopView === 'list' && 'md:block',
+              )}
+            >
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+                  <tr>
+                    <SortableTh
+                      label="Titel"
+                      isActive={vouSortKey === 'title'}
+                      direction={vouSortKey === 'title' ? vouSortDir : null}
+                      onClick={() => onVouSort('title')}
+                    />
+                    <SortableTh
+                      label="Kategori"
+                      isActive={vouSortKey === 'category'}
+                      direction={vouSortKey === 'category' ? vouSortDir : null}
+                      onClick={() => onVouSort('category')}
+                    />
+                    <SortableTh
+                      label="Dato"
+                      isActive={vouSortKey === 'date'}
+                      direction={vouSortKey === 'date' ? vouSortDir : null}
+                      onClick={() => onVouSort('date')}
+                    />
+                    <SortableTh
+                      label="Netto"
+                      isActive={vouSortKey === 'net'}
+                      direction={vouSortKey === 'net' ? vouSortDir : null}
+                      onClick={() => onVouSort('net')}
+                      align="right"
+                    />
+                    <SortableTh
+                      label="Moms"
+                      isActive={vouSortKey === 'vat'}
+                      direction={vouSortKey === 'vat' ? vouSortDir : null}
+                      onClick={() => onVouSort('vat')}
+                      align="right"
+                    />
+                    <SortableTh
+                      label="Brutto"
+                      isActive={vouSortKey === 'gross'}
+                      direction={vouSortKey === 'gross' ? vouSortDir : null}
+                      onClick={() => onVouSort('gross')}
+                      align="right"
+                    />
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedVouchers.map((r) => {
+                    const href = voucherDetailHref(r.id)
+                    return (
+                      <tr
+                        key={r.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => navigate(href)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            navigate(href)
+                          }
+                        }}
+                        className="cursor-pointer border-t border-slate-100 transition hover:bg-amber-50/50 focus-visible:bg-amber-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-amber-600"
+                      >
+                        <td className="px-4 py-3 text-slate-700">{r.title ?? '—'}</td>
+                        <td className="px-4 py-3 text-slate-700">{r.category ?? '—'}</td>
+                        <td className="px-4 py-3 text-slate-700">{r.expense_date}</td>
+                        <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.net_cents)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.vat_cents)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.gross_cents)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : null}
       </Section>
 
       <p className="text-xs text-slate-500">
-        Tallene kan indtastes direkte i TastSelv Erhverv. Direkte indberetning kræver SKAT-certifikat og kommer senere.
+        Tallene kan indtastes direkte i TastSelv Erhverv. Registrering af moms hos SKAT med ét klik fra Bilago
+        (uden manuelt certifikat-flow) kommer senere.
       </p>
     </AppPageLayout>
   )

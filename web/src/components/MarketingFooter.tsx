@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { BrandLogo } from '@/components/BrandLogo'
+import { marketingMobileNavFooterPad } from '@/components/MarketingMobileBottomNav'
 import { copenhagenYear } from '@/lib/format'
 import type { Database } from '@/types/database'
 
@@ -7,7 +8,7 @@ type PublicSettings = Database['public']['Tables']['platform_public_settings']['
 
 export function MarketingFooter({ pub }: { pub: PublicSettings | null }) {
   return (
-    <footer className="border-t border-slate-200 bg-white">
+    <footer className={`border-t border-slate-200 bg-white ${marketingMobileNavFooterPad}`}>
       <div className="mx-auto grid max-w-6xl gap-10 px-6 py-14 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <div>
           <BrandLogo variant="footer" />

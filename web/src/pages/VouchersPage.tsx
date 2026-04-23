@@ -11,7 +11,7 @@ import { logActivity } from '@/lib/activity'
 import { formatDateOnly, formatDkk } from '@/lib/format'
 import { formatParsedNotes, parseDanishReceiptText } from '@/lib/receiptParse'
 import { canAttemptVoucherOcr, ocrImageOrPdfFile } from '@/lib/voucherOcr'
-import type { Database } from '@/types/database'
+import type { CompanyRole, Database } from '@/types/database'
 
 type Voucher = Database['public']['Tables']['vouchers']['Row']
 
@@ -51,8 +51,12 @@ function sortVouchers(list: Voucher[], key: VoucherSortKey, dir: ColumnSortDir):
   })
 }
 
+function canWriterDeleteVouchers(role: CompanyRole | null) {
+  return role === 'owner' || role === 'manager' || role === 'bookkeeper'
+}
+
 export function VouchersPage() {
-  const { currentCompany, user } = useApp()
+  const { currentCompany, user, currentRole } = useApp()
   const [searchParams, setSearchParams] = useSearchParams()
   const [desktopView, setDesktopView] = useDesktopListViewPreference(VOUCHERS_VIEW_KEY, 'list')
   const [rows, setRows] = useState<Voucher[]>([])
@@ -67,6 +71,9 @@ export function VouchersPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [sortKey, setSortKey] = useState<VoucherSortKey | null>(null)
   const [sortDir, setSortDir] = useState<ColumnSortDir>('desc')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const canDeleteVoucher = canWriterDeleteVouchers(currentRole)
 
   async function load() {
     if (!currentCompany) return
@@ -284,6 +291,41 @@ export function VouchersPage() {
    * Åbner fil i ny fane. Brug ikke «about:blank» + sæt location efter `await` — flere
    * browsere blokerer så navigation (tab forbliver tom).
    */
+  async function deleteVoucher(v: Voucher) {
+    if (!currentCompany || !canDeleteVoucher) return
+    const name = (v.title?.trim() || v.filename || 'dette bilag').slice(0, 200)
+    if (
+      !window.confirm(
+        `Vil du slette bilag «${name}»?\n\nFilen og alle registrerede beløb fjernes permanent. Dette kan ikke fortrydes.`,
+      )
+    ) {
+      return
+    }
+    setDeletingId(v.id)
+    setError(null)
+    try {
+      const { error: rmErr } = await supabase.storage.from('vouchers').remove([v.storage_path])
+      if (rmErr) {
+        console.warn('[vouchers] storage remove:', rmErr.message)
+      }
+      const { error: delErr } = await supabase
+        .from('vouchers')
+        .delete()
+        .eq('id', v.id)
+        .eq('company_id', currentCompany.id)
+      if (delErr) {
+        setError(delErr.message)
+        return
+      }
+      setRows((prev) => prev.filter((r) => r.id !== v.id))
+      await logActivity(currentCompany.id, 'voucher_delete', `Bilag slettet: ${name}`, {
+        voucher_id: v.id,
+      })
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   async function openSigned(v: Voucher) {
     setError(null)
     let url: string
@@ -442,7 +484,22 @@ export function VouchersPage() {
                   <span>{v.category ? `Kategori: ${v.category}` : '—'}</span>
                   <span>{v.vat_cents ? `Moms ${formatDkk(v.vat_cents)}` : 'Moms —'}</span>
                 </div>
-                <span className="text-sm font-medium text-indigo-600">Åbn bilag →</span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-indigo-600">Åbn bilag →</span>
+                  {canDeleteVoucher ? (
+                    <button
+                      type="button"
+                      disabled={deletingId === v.id}
+                      className="min-h-[44px] rounded-lg px-2 text-sm font-medium text-rose-700 hover:bg-rose-50 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        void deleteVoucher(v)
+                      }}
+                    >
+                      {deletingId === v.id ? 'Sletter…' : 'Slet'}
+                    </button>
+                  ) : null}
+                </div>
               </div>
             )
           })
@@ -526,13 +583,25 @@ export function VouchersPage() {
                     {v.vat_cents ? formatDkk(v.vat_cents) : '—'}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      className="text-sm font-medium text-indigo-600 hover:underline"
-                      onClick={() => openSigned(v)}
-                    >
-                      Åbn
-                    </button>
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-indigo-600 hover:underline"
+                        onClick={() => openSigned(v)}
+                      >
+                        Åbn
+                      </button>
+                      {canDeleteVoucher ? (
+                        <button
+                          type="button"
+                          disabled={deletingId === v.id}
+                          className="text-sm font-medium text-rose-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                          onClick={() => void deleteVoucher(v)}
+                        >
+                          {deletingId === v.id ? 'Sletter…' : 'Slet'}
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))

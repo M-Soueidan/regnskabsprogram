@@ -3,6 +3,7 @@ import { MarketingProductVisual } from '@/components/MarketingProductVisual'
 import { MarketingSplitSection } from '@/components/MarketingSplitSection'
 import { MarketingFooter } from '@/components/MarketingFooter'
 import { MarketingHeader } from '@/components/MarketingHeader'
+import { MarketingMobileBottomNav } from '@/components/MarketingMobileBottomNav'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 
@@ -170,6 +171,7 @@ export function SupportHoursPage() {
       </main>
 
       <MarketingFooter pub={pub} />
+      <MarketingMobileBottomNav />
     </div>
   )
 }

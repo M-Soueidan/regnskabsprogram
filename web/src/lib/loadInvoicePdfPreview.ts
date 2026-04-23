@@ -101,9 +101,15 @@ export async function loadInvoicePdfPreview(
 }
 
 /**
- * Åbn PDF i ny fane med browserens egen visning (undgår iframe + app-chrome).
- * Kalder med det samme under klik, derefter sættes `location` når URL er klar (popup-blokering).
+ * Åbn tom fane synkront under brugerklik (undgår popup-blokering).
+ * Brug **ikke** `noopener` her: så returnerer flere browsere `null`, og ellers kan
+ * `location`-navigering til en blob-URL fra åbneren fejle → hvid `about:blank`-fane.
+ * Nulstil `opener` på den nye fane efter du har sat `location`.
  */
 export function openBlankTabForPdfNavigation(): Window | null {
-  return window.open('', '_blank', 'noopener,noreferrer')
+  try {
+    return window.open('about:blank', '_blank')
+  } catch {
+    return null
+  }
 }

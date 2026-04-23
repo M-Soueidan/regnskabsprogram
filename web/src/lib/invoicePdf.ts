@@ -373,5 +373,7 @@ export function generateInvoicePdfBlob(
   const footerSplit = doc.splitTextToSize(oneLiner, contentW)
   doc.text(footerSplit, MARGIN, py)
 
-  return doc.output('blob')
+  const raw = doc.output('blob')
+  /** Safari m.m. viser ofte hvid side uden eksplicit application/pdf. */
+  return raw.type === 'application/pdf' ? raw : new Blob([raw], { type: 'application/pdf' })
 }

@@ -24,7 +24,7 @@ export const marketingFaqs = [
 export const marketingTestimonials = [
   {
     quote:
-      'Bilago har gjort vores månedsafslutning meget hurtigere. Bank-afstemningen alene sparer mig timer.',
+      'Bilago har gjort vores månedsafslutning meget hurtigere. Bilag og fakturaer på ét sted sparer mig timer.',
     name: 'Mette H.',
     role: 'Indehaver, ApS',
   },

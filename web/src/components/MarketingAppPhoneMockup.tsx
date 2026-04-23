@@ -163,7 +163,7 @@ function ScreenSupport() {
 
 const urlByVariant: Record<AppPhoneVariant, string> = {
   pricing: 'bilago.dk/app/abonnement',
-  faq: 'bilago.dk/hjælp',
+  faq: 'bilago.dk/app/hjaelp',
   support: 'bilago.dk/app/support',
 }
 

@@ -228,6 +228,10 @@ export function InvoiceDetailPage() {
 
   async function markPaid() {
     if (!invoice || !currentCompany || !id) return
+    if (creditChild) {
+      setNotice('Denne faktura er kreditnoteret — betaling skal ikke registreres på hovedfakturaen.')
+      return
+    }
     if (!window.confirm('Markér denne faktura som betalt?')) return
     setMarkBusy(true)
     setNotice(null)
@@ -253,6 +257,10 @@ export function InvoiceDetailPage() {
 
   async function resendInvoice() {
     if (!invoice || !currentCompany) return
+    if (creditChild) {
+      setNotice('Kan ikke sende faktura på ny — den er kreditnoteret.')
+      return
+    }
     if (invoice.status === 'draft') {
       setNotice(
         'Kladder kan ikke ændres efter oprettelse. Opret en ny faktura i menuen, hvis du skal lave et nyt udkast.',
@@ -293,7 +301,12 @@ export function InvoiceDetailPage() {
     setNotice(null)
     try {
       const preview = await loadInvoicePdfPreview(currentCompany, id)
-      tab.location.href = preview.mainObjectUrl
+      tab.location.replace(preview.mainObjectUrl)
+      try {
+        tab.opener = null
+      } catch {
+        /* nogle browsere tillader ikke skrivning */
+      }
     } catch (e) {
       try {
         tab.close()
@@ -308,6 +321,10 @@ export function InvoiceDetailPage() {
 
   async function sendReminder() {
     if (!invoice || !currentCompany) return
+    if (creditChild) {
+      setNotice('Kan ikke sende påmindelse — fakturaen er kreditnoteret.')
+      return
+    }
     const to = invoice.customer_email?.trim()
     if (!to) {
       setNotice('Kundens e-mail mangler.')
@@ -364,11 +381,13 @@ export function InvoiceDetailPage() {
   }
 
   const credit = isCreditNote(invoice)
+  /** Hovedfaktura med oprettet kreditnota (ikke selve kreditnota-posten). */
+  const parentIsCredited = Boolean(creditChild) && !credit
   const overdue = isOverdue(invoice)
   const dispatchTimeline = dispatchTimelineItems(activity, invoice, id)
   const paidCents = invoice.status === 'paid' ? invoice.gross_cents : 0
   const restCents = invoice.gross_cents - paidCents
-  const canMarkPaid = invoice.status === 'sent' && !credit
+  const canMarkPaid = invoice.status === 'sent' && !credit && !creditChild
   const num = String(invoice.invoice_number ?? '').trim() || '—'
 
   const statusLine = (() => {
@@ -540,12 +559,20 @@ export function InvoiceDetailPage() {
               </h2>
               <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <ActionRow
-                  icon={<IconSend className="text-indigo-600" />}
+                  icon={
+                    <IconSend
+                      className={parentIsCredited ? 'text-slate-400' : 'text-indigo-600'}
+                    />
+                  }
                   title="Send til kunde"
                   subtitle={
-                    invoice.status === 'draft' ? 'Fortsæt i redigering' : 'Gensend faktura på e-mail'
+                    invoice.status === 'draft'
+                      ? 'Fortsæt i redigering'
+                      : parentIsCredited
+                        ? 'Ikke muligt — fakturaen er kreditnoteret'
+                        : 'Gensend faktura på e-mail'
                   }
-                  disabled={sendBusy}
+                  disabled={sendBusy || parentIsCredited}
                   onClick={() => void resendInvoice()}
                 />
                 {invoice.customer_email?.trim() ? (
@@ -564,31 +591,44 @@ export function InvoiceDetailPage() {
                   />
                 )}
                 <ActionRow
-                  icon={<IconBell className="text-indigo-600" />}
+                  icon={
+                    <IconBell
+                      className={parentIsCredited ? 'text-slate-400' : 'text-indigo-600'}
+                    />
+                  }
                   title="Betalingspåmindelse"
-                  subtitle="E-mail fra jeres skabelon"
+                  subtitle={
+                    parentIsCredited
+                      ? 'Ikke muligt — fakturaen er kreditnoteret'
+                      : 'E-mail fra jeres skabelon'
+                  }
                   disabled={
-                    reminderBusy || invoice.status === 'draft' || !invoice.customer_email?.trim()
+                    reminderBusy ||
+                    invoice.status === 'draft' ||
+                    !invoice.customer_email?.trim() ||
+                    parentIsCredited
                   }
                   onClick={() => void sendReminder()}
                 />
                 <ActionRow
-                  icon={<IconCredit className={credit ? 'text-slate-400' : 'text-indigo-600'} />}
+                  icon={
+                    <IconCredit
+                      className={credit || parentIsCredited ? 'text-slate-400' : 'text-indigo-600'}
+                    />
+                  }
                   title="Kreditnota"
                   subtitle={
                     credit
                       ? 'Kan ikke krediteres igen'
                       : creditChild
-                        ? `Allerede oprettet (${String(creditChild.invoice_number ?? '').trim() || '—'}) — åbn kreditnota`
+                        ? `Allerede oprettet (${String(creditChild.invoice_number ?? '').trim() || '—'}) — brug banneret ovenfor`
                         : 'Modregning af denne faktura'
                   }
-                  disabled={credit}
+                  disabled={credit || parentIsCredited}
                   onClick={
-                    credit
+                    credit || parentIsCredited
                       ? undefined
-                      : creditChild
-                        ? () => navigate(`/app/invoices/${creditChild.id}`)
-                        : () => navigate(`/app/invoices/new?creditFor=${id}`)
+                      : () => navigate(`/app/invoices/new?creditFor=${id}`)
                   }
                 />
               </div>

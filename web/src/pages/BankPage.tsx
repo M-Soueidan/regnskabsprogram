@@ -85,7 +85,8 @@ export function BankPage() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Bank</h1>
         <p className="text-sm text-slate-600">
-          Bankforbindelse (open banking) tilføjes senere — ikke en del af første release.
+          Bank-afstemning med import af kontoudtog og forslag til match mod fakturaer og bilag kommer snart.
+          Open banking-forbindelse tilføjes i samme omgang, når integrationen er klar.
         </p>
       </div>
 

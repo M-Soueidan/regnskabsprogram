@@ -4,9 +4,11 @@ import { useApp } from '@/context/AppProvider'
 import { LoadingCentered } from '@/components/LoadingIndicator'
 import { MarketingFooter } from '@/components/MarketingFooter'
 import { MarketingHeader } from '@/components/MarketingHeader'
+import { MarketingMobileBottomNav } from '@/components/MarketingMobileBottomNav'
 import { MarketingPricingSection } from '@/components/MarketingPricingSection'
 import { applyLandingSeoToDocument, mergeLandingSeo } from '@/lib/landingSeo'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { MarketingFeatureCard } from '@/components/MarketingFeatureCard'
 import { marketingFeatureCards } from '@/marketing/featureCards'
 import { CheckIcon } from '@/marketing/MarketingIcons'
 import { marketingFaqs, marketingPerks, marketingTestimonials } from '@/marketing/marketingData'
@@ -206,16 +208,7 @@ export function LandingPage() {
         </div>
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {landingFeatureCards.map((f) => (
-            <div
-              key={f.title}
-              className="group rounded-2xl border border-slate-200 bg-white p-6 transition hover:border-indigo-200 hover:shadow-md"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white">
-                <f.icon className="h-6 w-6" />
-              </div>
-              <h3 className="mt-5 text-base font-semibold text-slate-900">{f.title}</h3>
-              <p className="mt-2 text-sm text-slate-600">{f.desc}</p>
-            </div>
+            <MarketingFeatureCard key={f.title} card={f} />
           ))}
         </div>
       </section>
@@ -270,9 +263,14 @@ export function LandingPage() {
       <section>
         <div className="mx-auto grid max-w-6xl gap-12 px-6 py-24 lg:grid-cols-2 lg:items-center">
           <div>
-            <span className="text-sm font-semibold uppercase tracking-wide text-indigo-600">
-              Bank-afstemning
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold uppercase tracking-wide text-indigo-600">
+                Bank-afstemning
+              </span>
+              <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-indigo-700">
+                Kommer snart
+              </span>
+            </div>
             <h3 className="mt-3 text-3xl font-semibold tracking-tight">
               Match banken mod dit bogholderi automatisk
             </h3>
@@ -403,6 +401,7 @@ export function LandingPage() {
       </section>
 
       <MarketingFooter pub={pub} />
+      <MarketingMobileBottomNav />
     </div>
   )
 }

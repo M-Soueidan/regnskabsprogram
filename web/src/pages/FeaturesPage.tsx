@@ -3,6 +3,7 @@ import { MarketingProductVisual } from '@/components/MarketingProductVisual'
 import { MarketingShell } from '@/components/MarketingShell'
 import { MarketingSplitSection } from '@/components/MarketingSplitSection'
 import { CheckIcon } from '@/marketing/MarketingIcons'
+import { MarketingFeatureCard } from '@/components/MarketingFeatureCard'
 import { marketingFeatureCards } from '@/marketing/featureCards'
 import { marketingTestimonials } from '@/marketing/marketingData'
 
@@ -93,16 +94,11 @@ export function FeaturesPage() {
         </div>
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {marketingFeatureCards.map((f) => (
-            <div
+            <MarketingFeatureCard
               key={f.title}
-              className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-indigo-200 hover:shadow-md"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white">
-                <f.icon className="h-6 w-6" />
-              </div>
-              <h3 className="mt-5 text-lg font-semibold text-slate-900">{f.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">{f.desc}</p>
-            </div>
+              card={f}
+              titleClassName="mt-5 text-lg font-semibold text-slate-900"
+            />
           ))}
         </div>
       </section>

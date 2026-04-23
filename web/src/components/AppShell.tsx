@@ -24,16 +24,47 @@ const nav = [
   { to: '/app/vouchers', label: 'Bilag', icon: ReceiptIcon },
   { to: '/app/bank', label: 'Bank', icon: BankIcon },
   { to: '/app/vat', label: 'Moms', icon: PercentIcon },
+  { to: '/app/hjaelp', label: 'Hjælp & svar', icon: HelpIcon },
   { to: '/app/members', label: 'Medlemmer', icon: UsersIcon },
   { to: '/app/settings', label: 'Indstillinger', icon: CogIcon },
   { to: '/app/support', label: 'Support', icon: ChatIcon },
 ]
 
+function HelpIcon({ className }: NavIconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4" />
+      <path d="M12 17h.01" />
+    </svg>
+  )
+}
+
 function ChatIcon({ className }: NavIconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12a8 8 0 0 1-8 8H9l-4 3v-3H7a8 8 0 0 1-8-8 8 8 0 0 1 16 0Z" />
-      <path d="M8 10h.01M12 10h.01M16 10h.01" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+      <circle cx="8" cy="12" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="12" r="1.1" fill="currentColor" stroke="none" />
     </svg>
   )
 }

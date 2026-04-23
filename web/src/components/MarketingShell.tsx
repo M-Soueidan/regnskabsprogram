@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { MarketingFooter } from '@/components/MarketingFooter'
 import { MarketingHeader } from '@/components/MarketingHeader'
+import { MarketingMobileBottomNav } from '@/components/MarketingMobileBottomNav'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 
@@ -52,6 +53,7 @@ export function MarketingShell({
         <MarketingHeader />
         <div className="flex-1">{children}</div>
         <MarketingFooter pub={pub} />
+        <MarketingMobileBottomNav />
       </div>
     </MarketingPublicSettingsContext.Provider>
   )

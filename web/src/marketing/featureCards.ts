@@ -12,6 +12,8 @@ export type FeatureCard = {
   icon: ComponentType<{ className?: string }>
   title: string
   desc: string
+  /** Vises som badge — bruges når funktionen endnu ikke er klar (fx bank-match, SKAT-indberetning). */
+  comingSoon?: boolean
 }
 
 /** Kernefunktioner — vist på forsiden (første fire) og udvidet på /funktioner. */
@@ -30,6 +32,7 @@ export const marketingFeatureCards: FeatureCard[] = [
     icon: BankIcon,
     title: 'Bank-afstemning',
     desc: 'Importér kontoudtog og match automatisk mod fakturaer og bilag — uden fejl.',
+    comingSoon: true,
   },
   {
     icon: SearchIcon,
@@ -39,7 +42,8 @@ export const marketingFeatureCards: FeatureCard[] = [
   {
     icon: PercentIcon,
     title: 'Moms & rapporter',
-    desc: 'Automatisk momsberegning og oversigt over salgsmoms og fradrag — klar til dit momsafregning.',
+    desc: 'Overblik over salgsmoms og købsmoms pr. periode i appen. Indberetning til SKAT med ét klik direkte fra Bilago kommer snart.',
+    comingSoon: true,
   },
   {
     icon: UsersIcon,
