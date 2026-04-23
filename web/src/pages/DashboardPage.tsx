@@ -130,10 +130,7 @@ export function DashboardPage() {
   }, [searchParams, refresh])
 
   useEffect(() => {
-    if (!currentCompany) {
-      setLoading(false)
-      return
-    }
+    if (!currentCompany) return
     let cancelled = false
     void (async () => {
       setLoading(true)

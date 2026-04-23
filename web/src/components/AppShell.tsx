@@ -280,6 +280,8 @@ function TrialBanner({
   companyId: string
 }) {
   const [, setPrefTick] = useState(0)
+  const [daysLeft, setDaysLeft] = useState<number | null>(null)
+
   useEffect(() => {
     const bump = () => setPrefTick((n) => n + 1)
     window.addEventListener('storage', bump)
@@ -290,9 +292,17 @@ function TrialBanner({
     }
   }, [])
 
-  const daysLeft = periodEnd
-    ? Math.max(0, Math.ceil((new Date(periodEnd).getTime() - Date.now()) / 86_400_000))
-    : null
+  useEffect(() => {
+    if (!periodEnd) {
+      queueMicrotask(() => setDaysLeft(null))
+      return
+    }
+    const compute = () =>
+      Math.max(0, Math.ceil((new Date(periodEnd).getTime() - Date.now()) / 86_400_000))
+    queueMicrotask(() => setDaysLeft(compute()))
+    const id = window.setInterval(() => setDaysLeft(compute()), 60_000)
+    return () => window.clearInterval(id)
+  }, [periodEnd])
 
   /** Under sidste dag (0 tilbage) eller ukendt slutdato: banner vises altid. */
   const canDismissBanner = daysLeft !== null && daysLeft > 0
