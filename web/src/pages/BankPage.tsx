@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { SortableTh } from '@/components/SortableTh'
+import { nextColumnSortState, type ColumnSortDir } from '@/lib/tableSort'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
 import { formatDateTime } from '@/lib/format'
@@ -13,11 +15,46 @@ const statusDa: Record<Conn['status'], string> = {
   disconnected: 'Afbrudt',
 }
 
+type BankSortKey = 'provider' | 'institution' | 'status' | 'created'
+
+function sortConnections(list: Conn[], key: BankSortKey, dir: ColumnSortDir): Conn[] {
+  const mul = dir === 'asc' ? 1 : -1
+  return [...list].sort((a, b) => {
+    switch (key) {
+      case 'provider':
+        return mul * String(a.provider).localeCompare(String(b.provider), 'da', { sensitivity: 'base' })
+      case 'institution':
+        return mul * String(a.institution_name ?? '').localeCompare(String(b.institution_name ?? ''), 'da', {
+          sensitivity: 'base',
+        })
+      case 'status':
+        return mul * String(a.status).localeCompare(String(b.status))
+      case 'created':
+        return mul * String(a.created_at).localeCompare(String(b.created_at))
+      default:
+        return 0
+    }
+  })
+}
+
 /** Aiia-integration er udskudt — siden viser evt. eksisterende rækker fra senere test. */
 export function BankPage() {
   const { currentCompany } = useApp()
   const [rows, setRows] = useState<Conn[]>([])
   const [loading, setLoading] = useState(true)
+  const [sortKey, setSortKey] = useState<BankSortKey | null>(null)
+  const [sortDir, setSortDir] = useState<ColumnSortDir>('desc')
+
+  const displayRows = useMemo(() => {
+    if (sortKey === null) return rows
+    return sortConnections(rows, sortKey, sortDir)
+  }, [rows, sortKey, sortDir])
+
+  function onSortColumn(col: BankSortKey) {
+    const next = nextColumnSortState(col, sortKey, sortDir, true)
+    setSortKey(next.key as BankSortKey | null)
+    setSortDir(next.dir)
+  }
 
   useEffect(() => {
     if (!currentCompany) return
@@ -64,10 +101,30 @@ export function BankPage() {
         <table className="min-w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
             <tr>
-              <th className="px-4 py-3">Udbyder</th>
-              <th className="px-4 py-3">Institution</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Oprettet</th>
+              <SortableTh
+                label="Udbyder"
+                isActive={sortKey === 'provider'}
+                direction={sortKey === 'provider' ? sortDir : null}
+                onClick={() => onSortColumn('provider')}
+              />
+              <SortableTh
+                label="Institution"
+                isActive={sortKey === 'institution'}
+                direction={sortKey === 'institution' ? sortDir : null}
+                onClick={() => onSortColumn('institution')}
+              />
+              <SortableTh
+                label="Status"
+                isActive={sortKey === 'status'}
+                direction={sortKey === 'status' ? sortDir : null}
+                onClick={() => onSortColumn('status')}
+              />
+              <SortableTh
+                label="Oprettet"
+                isActive={sortKey === 'created'}
+                direction={sortKey === 'created' ? sortDir : null}
+                onClick={() => onSortColumn('created')}
+              />
             </tr>
           </thead>
           <tbody>
@@ -84,7 +141,7 @@ export function BankPage() {
                 </td>
               </tr>
             ) : (
-              rows.map((r) => (
+              displayRows.map((r) => (
                 <tr key={r.id} className="border-t border-slate-100">
                   <td className="px-4 py-3 capitalize text-slate-800">{r.provider}</td>
                   <td className="px-4 py-3 text-slate-700">

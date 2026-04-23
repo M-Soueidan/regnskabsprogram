@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { SortableTh } from '@/components/SortableTh'
+import { nextColumnSortState, type ColumnSortDir } from '@/lib/tableSort'
 import { DesktopListCardsToggle } from '@/components/DesktopListCardsToggle'
 import { useDesktopListViewPreference } from '@/hooks/useDesktopListViewPreference'
 import { supabase } from '@/lib/supabase'
@@ -58,6 +60,38 @@ const statusDa: Record<Invoice['status'], string> = {
 
 const INVOICES_VIEW_KEY = 'bilago:invoicesDesktopView'
 
+type InvoiceSortKey = 'number' | 'customer' | 'date' | 'status' | 'amount'
+
+function sortInvoicesFlat(list: Invoice[], key: InvoiceSortKey, dir: ColumnSortDir): Invoice[] {
+  const mul = dir === 'asc' ? 1 : -1
+  return [...list].sort((a, b) => {
+    switch (key) {
+      case 'number':
+        return (
+          mul *
+          String(a.invoice_number).localeCompare(String(b.invoice_number), undefined, {
+            numeric: true,
+          })
+        )
+      case 'customer':
+        return (
+          mul *
+          String(a.customer_name).localeCompare(String(b.customer_name), 'da', {
+            sensitivity: 'base',
+          })
+        )
+      case 'date':
+        return mul * String(a.issue_date).localeCompare(String(b.issue_date))
+      case 'status':
+        return mul * String(a.status).localeCompare(String(b.status))
+      case 'amount':
+        return mul * (a.gross_cents - b.gross_cents)
+      default:
+        return 0
+    }
+  })
+}
+
 export function InvoicesPage() {
   const navigate = useNavigate()
   const { currentCompany } = useApp()
@@ -65,29 +99,39 @@ export function InvoicesPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [desktopView, setDesktopView] = useDesktopListViewPreference(INVOICES_VIEW_KEY, 'list')
+  const [sortKey, setSortKey] = useState<InvoiceSortKey | null>(null)
+  const [sortDir, setSortDir] = useState<ColumnSortDir>('desc')
 
-  const filteredRows = useMemo(() => {
+  const searchMatched = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     const tokens = q.split(/\s+/).filter(Boolean)
-    const matched =
-      tokens.length === 0
-        ? rows
-        : rows.filter((inv) => {
-            const hay = [
-              inv.invoice_number,
-              inv.customer_name,
-              inv.customer_email ?? '',
-              statusDa[inv.status],
-              inv.issue_date,
-              inv.notes ?? '',
-              formatDkk(inv.gross_cents, inv.currency),
-            ]
-              .join(' ')
-              .toLowerCase()
-            return tokens.every((t) => hay.includes(t))
-          })
-    return orderInvoicesForDisplay(matched)
+    if (tokens.length === 0) return rows
+    return rows.filter((inv) => {
+      const hay = [
+        inv.invoice_number,
+        inv.customer_name,
+        inv.customer_email ?? '',
+        statusDa[inv.status],
+        inv.issue_date,
+        inv.notes ?? '',
+        formatDkk(inv.gross_cents, inv.currency),
+      ]
+        .join(' ')
+        .toLowerCase()
+      return tokens.every((t) => hay.includes(t))
+    })
   }, [rows, searchQuery])
+
+  const filteredRows = useMemo(() => {
+    if (sortKey === null) return orderInvoicesForDisplay(searchMatched)
+    return sortInvoicesFlat(searchMatched, sortKey, sortDir)
+  }, [searchMatched, sortKey, sortDir])
+
+  function onSortColumn(col: InvoiceSortKey) {
+    const next = nextColumnSortState(col, sortKey, sortDir, true)
+    setSortKey(next.key as InvoiceSortKey | null)
+    setSortDir(next.dir)
+  }
 
   useEffect(() => {
     if (!currentCompany) return
@@ -214,11 +258,37 @@ export function InvoicesPage() {
         <table className="min-w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
             <tr>
-              <th className="px-4 py-3">Nr.</th>
-              <th className="px-4 py-3">Kunde</th>
-              <th className="px-4 py-3">Dato</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Beløb</th>
+              <SortableTh
+                label="Nr."
+                isActive={sortKey === 'number'}
+                direction={sortKey === 'number' ? sortDir : null}
+                onClick={() => onSortColumn('number')}
+              />
+              <SortableTh
+                label="Kunde"
+                isActive={sortKey === 'customer'}
+                direction={sortKey === 'customer' ? sortDir : null}
+                onClick={() => onSortColumn('customer')}
+              />
+              <SortableTh
+                label="Dato"
+                isActive={sortKey === 'date'}
+                direction={sortKey === 'date' ? sortDir : null}
+                onClick={() => onSortColumn('date')}
+              />
+              <SortableTh
+                label="Status"
+                isActive={sortKey === 'status'}
+                direction={sortKey === 'status' ? sortDir : null}
+                onClick={() => onSortColumn('status')}
+              />
+              <SortableTh
+                label="Beløb"
+                isActive={sortKey === 'amount'}
+                direction={sortKey === 'amount' ? sortDir : null}
+                onClick={() => onSortColumn('amount')}
+                align="right"
+              />
             </tr>
           </thead>
           <tbody>

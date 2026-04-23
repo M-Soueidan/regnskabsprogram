@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { SortableTh } from '@/components/SortableTh'
+import { nextColumnSortState, type ColumnSortDir } from '@/lib/tableSort'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '@/context/AppProvider'
 import type { Database } from '@/types/database'
@@ -7,6 +9,24 @@ import { formatDate } from '@/lib/format'
 
 type Company = Database['public']['Tables']['companies']['Row']
 
+type CompanySortKey = 'name' | 'cvr' | 'created'
+
+function sortCompanies(list: Company[], key: CompanySortKey, dir: ColumnSortDir): Company[] {
+  const mul = dir === 'asc' ? 1 : -1
+  return [...list].sort((a, b) => {
+    switch (key) {
+      case 'name':
+        return mul * String(a.name).localeCompare(String(b.name), 'da', { sensitivity: 'base' })
+      case 'cvr':
+        return mul * String(a.cvr ?? '').localeCompare(String(b.cvr ?? ''), undefined, { numeric: true })
+      case 'created':
+        return mul * String(a.created_at).localeCompare(String(b.created_at))
+      default:
+        return 0
+    }
+  })
+}
+
 export function PlatformCompaniesPage() {
   const navigate = useNavigate()
   const { refresh } = useApp()
@@ -14,6 +34,19 @@ export function PlatformCompaniesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [sortKey, setSortKey] = useState<CompanySortKey | null>(null)
+  const [sortDir, setSortDir] = useState<ColumnSortDir>('desc')
+
+  const displayRows = useMemo(() => {
+    if (sortKey === null) return rows
+    return sortCompanies(rows, sortKey, sortDir)
+  }, [rows, sortKey, sortDir])
+
+  function onSortColumn(col: CompanySortKey) {
+    const next = nextColumnSortState(col, sortKey, sortDir, true)
+    setSortKey(next.key as CompanySortKey | null)
+    setSortDir(next.dir)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -73,14 +106,33 @@ export function PlatformCompaniesPage() {
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">Navn</th>
-                <th className="hidden px-4 py-3 sm:table-cell">CVR</th>
-                <th className="hidden px-4 py-3 md:table-cell">Oprettet</th>
-                <th className="px-4 py-3 text-right">Handling</th>
+                <SortableTh
+                  label="Navn"
+                  isActive={sortKey === 'name'}
+                  direction={sortKey === 'name' ? sortDir : null}
+                  onClick={() => onSortColumn('name')}
+                />
+                <SortableTh
+                  label="CVR"
+                  isActive={sortKey === 'cvr'}
+                  direction={sortKey === 'cvr' ? sortDir : null}
+                  onClick={() => onSortColumn('cvr')}
+                  className="hidden sm:table-cell"
+                />
+                <SortableTh
+                  label="Oprettet"
+                  isActive={sortKey === 'created'}
+                  direction={sortKey === 'created' ? sortDir : null}
+                  onClick={() => onSortColumn('created')}
+                  className="hidden md:table-cell"
+                />
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Handling
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.map((c) => (
+              {displayRows.map((c) => (
                 <tr key={c.id} className="hover:bg-slate-50/80">
                   <td className="px-4 py-3 font-medium text-slate-900">{c.name}</td>
                   <td className="hidden px-4 py-3 text-slate-600 sm:table-cell">

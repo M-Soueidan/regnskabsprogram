@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { SortableTh } from '@/components/SortableTh'
+import { nextColumnSortState, type ColumnSortDir } from '@/lib/tableSort'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
 import { copenhagenYmd, copenhagenYear, formatDkk } from '@/lib/format'
@@ -42,6 +44,53 @@ type VoucherRow = {
   gross_cents: number
 }
 
+type VatInvSortKey = 'number' | 'customer' | 'date' | 'net' | 'vat' | 'gross'
+type VatVouSortKey = 'title' | 'category' | 'date' | 'net' | 'vat' | 'gross'
+
+function sortVatInvoices(list: InvoiceRow[], key: VatInvSortKey, dir: ColumnSortDir): InvoiceRow[] {
+  const mul = dir === 'asc' ? 1 : -1
+  return [...list].sort((a, b) => {
+    switch (key) {
+      case 'number':
+        return mul * String(a.invoice_number).localeCompare(String(b.invoice_number), undefined, { numeric: true })
+      case 'customer':
+        return mul * String(a.customer_name).localeCompare(String(b.customer_name), 'da', { sensitivity: 'base' })
+      case 'date':
+        return mul * String(a.issue_date).localeCompare(String(b.issue_date))
+      case 'net':
+        return mul * ((a.net_cents ?? 0) - (b.net_cents ?? 0))
+      case 'vat':
+        return mul * ((a.vat_cents ?? 0) - (b.vat_cents ?? 0))
+      case 'gross':
+        return mul * ((a.gross_cents ?? 0) - (b.gross_cents ?? 0))
+      default:
+        return 0
+    }
+  })
+}
+
+function sortVatVouchers(list: VoucherRow[], key: VatVouSortKey, dir: ColumnSortDir): VoucherRow[] {
+  const mul = dir === 'asc' ? 1 : -1
+  return [...list].sort((a, b) => {
+    switch (key) {
+      case 'title':
+        return mul * String(a.title ?? '').localeCompare(String(b.title ?? ''), 'da', { sensitivity: 'base' })
+      case 'category':
+        return mul * String(a.category ?? '').localeCompare(String(b.category ?? ''), 'da', { sensitivity: 'base' })
+      case 'date':
+        return mul * String(a.expense_date).localeCompare(String(b.expense_date))
+      case 'net':
+        return mul * ((a.net_cents ?? 0) - (b.net_cents ?? 0))
+      case 'vat':
+        return mul * ((a.vat_cents ?? 0) - (b.vat_cents ?? 0))
+      case 'gross':
+        return mul * ((a.gross_cents ?? 0) - (b.gross_cents ?? 0))
+      default:
+        return 0
+    }
+  })
+}
+
 export function VatPage() {
   const { currentCompany } = useApp()
   const year = copenhagenYear()
@@ -58,6 +107,32 @@ export function VatPage() {
   const [invoices, setInvoices] = useState<InvoiceRow[]>([])
   const [vouchers, setVouchers] = useState<VoucherRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [invSortKey, setInvSortKey] = useState<VatInvSortKey | null>(null)
+  const [invSortDir, setInvSortDir] = useState<ColumnSortDir>('desc')
+  const [vouSortKey, setVouSortKey] = useState<VatVouSortKey | null>(null)
+  const [vouSortDir, setVouSortDir] = useState<ColumnSortDir>('desc')
+
+  const sortedInvoices = useMemo(() => {
+    if (invSortKey === null) return invoices
+    return sortVatInvoices(invoices, invSortKey, invSortDir)
+  }, [invoices, invSortKey, invSortDir])
+
+  const sortedVouchers = useMemo(() => {
+    if (vouSortKey === null) return vouchers
+    return sortVatVouchers(vouchers, vouSortKey, vouSortDir)
+  }, [vouchers, vouSortKey, vouSortDir])
+
+  function onInvSort(col: VatInvSortKey) {
+    const next = nextColumnSortState(col, invSortKey, invSortDir, true)
+    setInvSortKey(next.key as VatInvSortKey | null)
+    setInvSortDir(next.dir)
+  }
+
+  function onVouSort(col: VatVouSortKey) {
+    const next = nextColumnSortState(col, vouSortKey, vouSortDir, true)
+    setVouSortKey(next.key as VatVouSortKey | null)
+    setVouSortDir(next.dir)
+  }
 
   const load = useCallback(async () => {
     if (!currentCompany || !period) return
@@ -180,18 +255,63 @@ export function VatPage() {
         loading={loading}
       >
         {invoices.length > 0 ? (
-          <Table
-            headers={['Fakturanr', 'Kunde', 'Dato', 'Netto', 'Moms', 'Brutto']}
-            rows={invoices.map((r) => [
-              r.invoice_number,
-              r.customer_name,
-              r.issue_date,
-              formatDkk(r.net_cents),
-              formatDkk(r.vat_cents),
-              formatDkk(r.gross_cents),
-            ])}
-            rightCols={[3, 4, 5]}
-          />
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+              <tr>
+                <SortableTh
+                  label="Fakturanr"
+                  isActive={invSortKey === 'number'}
+                  direction={invSortKey === 'number' ? invSortDir : null}
+                  onClick={() => onInvSort('number')}
+                />
+                <SortableTh
+                  label="Kunde"
+                  isActive={invSortKey === 'customer'}
+                  direction={invSortKey === 'customer' ? invSortDir : null}
+                  onClick={() => onInvSort('customer')}
+                />
+                <SortableTh
+                  label="Dato"
+                  isActive={invSortKey === 'date'}
+                  direction={invSortKey === 'date' ? invSortDir : null}
+                  onClick={() => onInvSort('date')}
+                />
+                <SortableTh
+                  label="Netto"
+                  isActive={invSortKey === 'net'}
+                  direction={invSortKey === 'net' ? invSortDir : null}
+                  onClick={() => onInvSort('net')}
+                  align="right"
+                />
+                <SortableTh
+                  label="Moms"
+                  isActive={invSortKey === 'vat'}
+                  direction={invSortKey === 'vat' ? invSortDir : null}
+                  onClick={() => onInvSort('vat')}
+                  align="right"
+                />
+                <SortableTh
+                  label="Brutto"
+                  isActive={invSortKey === 'gross'}
+                  direction={invSortKey === 'gross' ? invSortDir : null}
+                  onClick={() => onInvSort('gross')}
+                  align="right"
+                />
+              </tr>
+            </thead>
+            <tbody>
+              {sortedInvoices.map((r) => (
+                <tr key={r.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3 text-slate-700">{r.invoice_number}</td>
+                  <td className="px-4 py-3 text-slate-700">{r.customer_name}</td>
+                  <td className="px-4 py-3 text-slate-700">{r.issue_date}</td>
+                  <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.net_cents)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.vat_cents)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.gross_cents)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : null}
       </Section>
 
@@ -201,18 +321,63 @@ export function VatPage() {
         loading={loading}
       >
         {vouchers.length > 0 ? (
-          <Table
-            headers={['Titel', 'Kategori', 'Dato', 'Netto', 'Moms', 'Brutto']}
-            rows={vouchers.map((r) => [
-              r.title ?? '—',
-              r.category ?? '—',
-              r.expense_date,
-              formatDkk(r.net_cents),
-              formatDkk(r.vat_cents),
-              formatDkk(r.gross_cents),
-            ])}
-            rightCols={[3, 4, 5]}
-          />
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+              <tr>
+                <SortableTh
+                  label="Titel"
+                  isActive={vouSortKey === 'title'}
+                  direction={vouSortKey === 'title' ? vouSortDir : null}
+                  onClick={() => onVouSort('title')}
+                />
+                <SortableTh
+                  label="Kategori"
+                  isActive={vouSortKey === 'category'}
+                  direction={vouSortKey === 'category' ? vouSortDir : null}
+                  onClick={() => onVouSort('category')}
+                />
+                <SortableTh
+                  label="Dato"
+                  isActive={vouSortKey === 'date'}
+                  direction={vouSortKey === 'date' ? vouSortDir : null}
+                  onClick={() => onVouSort('date')}
+                />
+                <SortableTh
+                  label="Netto"
+                  isActive={vouSortKey === 'net'}
+                  direction={vouSortKey === 'net' ? vouSortDir : null}
+                  onClick={() => onVouSort('net')}
+                  align="right"
+                />
+                <SortableTh
+                  label="Moms"
+                  isActive={vouSortKey === 'vat'}
+                  direction={vouSortKey === 'vat' ? vouSortDir : null}
+                  onClick={() => onVouSort('vat')}
+                  align="right"
+                />
+                <SortableTh
+                  label="Brutto"
+                  isActive={vouSortKey === 'gross'}
+                  direction={vouSortKey === 'gross' ? vouSortDir : null}
+                  onClick={() => onVouSort('gross')}
+                  align="right"
+                />
+              </tr>
+            </thead>
+            <tbody>
+              {sortedVouchers.map((r) => (
+                <tr key={r.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3 text-slate-700">{r.title ?? '—'}</td>
+                  <td className="px-4 py-3 text-slate-700">{r.category ?? '—'}</td>
+                  <td className="px-4 py-3 text-slate-700">{r.expense_date}</td>
+                  <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.net_cents)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.vat_cents)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-slate-800">{formatDkk(r.gross_cents)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : null}
       </Section>
 
@@ -276,40 +441,3 @@ function Section({
   )
 }
 
-function Table({
-  headers,
-  rows,
-  rightCols,
-}: {
-  headers: string[]
-  rows: (string | number)[][]
-  rightCols: number[]
-}) {
-  return (
-    <table className="min-w-full text-left text-sm">
-      <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
-        <tr>
-          {headers.map((h, i) => (
-            <th key={h} className={`px-4 py-3 ${rightCols.includes(i) ? 'text-right' : ''}`}>
-              {h}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r, idx) => (
-          <tr key={idx} className="border-t border-slate-100">
-            {r.map((c, i) => (
-              <td
-                key={i}
-                className={`px-4 py-3 ${rightCols.includes(i) ? 'text-right font-mono text-slate-800' : 'text-slate-700'}`}
-              >
-                {c}
-              </td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}

@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { SortableTh } from '@/components/SortableTh'
+import { nextColumnSortState, type ColumnSortDir } from '@/lib/tableSort'
 import { Navigate } from 'react-router-dom'
 import { useApp } from '@/context/AppProvider'
 import { supabase } from '@/lib/supabase'
@@ -11,6 +13,24 @@ type StaffRow = {
   email: string
 }
 
+type StaffSortKey = 'email' | 'role' | 'created'
+
+function sortStaff(list: StaffRow[], key: StaffSortKey, dir: ColumnSortDir): StaffRow[] {
+  const mul = dir === 'asc' ? 1 : -1
+  return [...list].sort((a, b) => {
+    switch (key) {
+      case 'email':
+        return mul * String(a.email).localeCompare(String(b.email), 'da', { sensitivity: 'base' })
+      case 'role':
+        return mul * String(a.role).localeCompare(String(b.role))
+      case 'created':
+        return mul * String(a.created_at).localeCompare(String(b.created_at))
+      default:
+        return 0
+    }
+  })
+}
+
 export function PlatformStaffPage() {
   const { platformRole } = useApp()
   const [rows, setRows] = useState<StaffRow[]>([])
@@ -19,6 +39,19 @@ export function PlatformStaffPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
+  const [sortKey, setSortKey] = useState<StaffSortKey | null>(null)
+  const [sortDir, setSortDir] = useState<ColumnSortDir>('desc')
+
+  const displayRows = useMemo(() => {
+    if (sortKey === null) return rows
+    return sortStaff(rows, sortKey, sortDir)
+  }, [rows, sortKey, sortDir])
+
+  function onSortColumn(col: StaffSortKey) {
+    const next = nextColumnSortState(col, sortKey, sortDir, true)
+    setSortKey(next.key as StaffSortKey | null)
+    setSortDir(next.dir)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -127,14 +160,32 @@ export function PlatformStaffPage() {
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">E-mail</th>
-                <th className="px-4 py-3">Rolle</th>
-                <th className="hidden px-4 py-3 sm:table-cell">Oprettet</th>
-                <th className="px-4 py-3 text-right">Handling</th>
+                <SortableTh
+                  label="E-mail"
+                  isActive={sortKey === 'email'}
+                  direction={sortKey === 'email' ? sortDir : null}
+                  onClick={() => onSortColumn('email')}
+                />
+                <SortableTh
+                  label="Rolle"
+                  isActive={sortKey === 'role'}
+                  direction={sortKey === 'role' ? sortDir : null}
+                  onClick={() => onSortColumn('role')}
+                />
+                <SortableTh
+                  label="Oprettet"
+                  isActive={sortKey === 'created'}
+                  direction={sortKey === 'created' ? sortDir : null}
+                  onClick={() => onSortColumn('created')}
+                  className="hidden sm:table-cell"
+                />
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Handling
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.map((r) => (
+              {displayRows.map((r) => (
                 <tr key={r.user_id}>
                   <td className="px-4 py-3 text-slate-800">
                     <span className="break-all">{r.email}</span>

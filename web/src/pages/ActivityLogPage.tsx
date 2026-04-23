@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
+import { SortableTh } from '@/components/SortableTh'
+import { nextColumnSortState, type ColumnSortDir } from '@/lib/tableSort'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
 import { activityDisplayTitle, activityLooksLikeCreditNote } from '@/lib/activityDisplay'
@@ -13,10 +15,25 @@ type Activity = Database['public']['Tables']['activity_events']['Row']
 
 const FETCH_LIMIT = 300
 
+type ActivitySortKey = 'time' | 'title'
+
+function sortActivities(list: Activity[], key: ActivitySortKey, dir: ColumnSortDir): Activity[] {
+  const mul = dir === 'asc' ? 1 : -1
+  return [...list].sort((a, b) => {
+    if (key === 'time') return mul * String(a.created_at).localeCompare(String(b.created_at))
+    return (
+      mul *
+      activityDisplayTitle(a).localeCompare(activityDisplayTitle(b), 'da', { sensitivity: 'base' })
+    )
+  })
+}
+
 export function ActivityLogPage() {
   const { currentCompany } = useApp()
   const [rows, setRows] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
+  const [sortKey, setSortKey] = useState<ActivitySortKey | null>(null)
+  const [sortDir, setSortDir] = useState<ColumnSortDir>('desc')
 
   useEffect(() => {
     if (!currentCompany) {
@@ -45,6 +62,17 @@ export function ActivityLogPage() {
     }
   }, [currentCompany])
 
+  const sortedRows = useMemo(() => {
+    if (sortKey === null) return rows
+    return sortActivities(rows, sortKey, sortDir)
+  }, [rows, sortKey, sortDir])
+
+  function onSortColumn(col: ActivitySortKey) {
+    const next = nextColumnSortState(col, sortKey, sortDir, true)
+    setSortKey(next.key as ActivitySortKey | null)
+    setSortDir(next.dir)
+  }
+
   if (!currentCompany) return null
 
   return (
@@ -62,81 +90,108 @@ export function ActivityLogPage() {
         </p>
       </div>
 
-      <ul className="flex-1 divide-y divide-slate-100 border-y border-slate-200 bg-white">
-        {loading ? (
-          <li className="flex flex-col items-center justify-center gap-2 px-4 py-12 md:px-8">
-            <span className="sr-only">Indlæser</span>
-            <LoadingSpinner size="md" />
-          </li>
-        ) : rows.length === 0 ? (
-          <li className="px-4 py-10 text-center text-sm text-slate-500 md:px-8">Ingen aktivitet endnu.</li>
-        ) : (
-          rows.map((a) => {
-            const credit = activityLooksLikeCreditNote(a)
-            const href = activityEventHref(a)
-            const rowPad = credit
-              ? 'border-l-4 border-l-rose-600 bg-rose-50 px-4 py-3.5 md:px-8'
-              : 'px-4 py-3.5 md:px-8'
-            const titleCls = credit ? 'text-rose-950' : 'text-slate-800'
-            const timeCls = credit ? 'text-rose-800/90' : 'text-slate-500'
-
-            const inner = (
-              <div className="flex min-w-0 items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-1 items-start gap-2">
-                  {credit ? (
-                    <span
-                      className="mt-0.5 shrink-0 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
-                      title="Kreditnota"
-                    >
-                      Kredit
-                    </span>
-                  ) : null}
-                  <div className="min-w-0 flex-1">
-                    <div className={`text-sm font-semibold ${titleCls}`}>
-                      {activityDisplayTitle(a)}
-                    </div>
-                    <div className={`mt-0.5 text-xs ${timeCls}`}>{formatDateTime(a.created_at)}</div>
+      <div className="flex-1 overflow-x-auto border-y border-slate-200 bg-white">
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+            <tr>
+              <SortableTh
+                label="Tidspunkt"
+                isActive={sortKey === 'time'}
+                direction={sortKey === 'time' ? sortDir : null}
+                onClick={() => onSortColumn('time')}
+              />
+              <SortableTh
+                label="Hændelse"
+                isActive={sortKey === 'title'}
+                direction={sortKey === 'title' ? sortDir : null}
+                onClick={() => onSortColumn('title')}
+              />
+              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 md:px-8">
+                Åbn
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={3} className="px-4 py-12 text-center md:px-8">
+                  <span className="sr-only">Indlæser</span>
+                  <div className="flex justify-center">
+                    <LoadingSpinner size="md" />
                   </div>
-                </div>
-                {href ? (
-                  <span
-                    className="shrink-0 text-xs font-semibold text-indigo-600"
-                    aria-hidden
-                  >
-                    Vis →
-                  </span>
-                ) : null}
-              </div>
-            )
+                </td>
+              </tr>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="px-4 py-10 text-center text-slate-500 md:px-8">
+                  Ingen aktivitet endnu.
+                </td>
+              </tr>
+            ) : (
+              sortedRows.map((a) => {
+                const credit = activityLooksLikeCreditNote(a)
+                const href = activityEventHref(a)
+                const titleCls = credit ? 'text-rose-950' : 'text-slate-800'
+                const rowBg = credit ? 'bg-rose-50/90' : ''
+                const borderL = credit ? 'border-l-4 border-l-rose-600' : ''
 
-            if (href) {
-              return (
-                <li key={a.id}>
-                  <Link
-                    to={href}
-                    aria-label={`${activityDisplayTitle(a)} — åbn`}
-                    className={clsx(
-                      'block transition',
-                      rowPad,
-                      credit
-                        ? 'hover:bg-rose-100/70 active:bg-rose-100'
-                        : 'hover:bg-indigo-50/50 active:bg-indigo-50',
-                    )}
-                  >
-                    {inner}
-                  </Link>
-                </li>
-              )
-            }
+                const titleBlock = (
+                  <div className="flex min-w-0 items-start gap-2">
+                    {credit ? (
+                      <span
+                        className="mt-0.5 shrink-0 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+                        title="Kreditnota"
+                      >
+                        Kredit
+                      </span>
+                    ) : null}
+                    <span className={`min-w-0 text-sm font-semibold ${titleCls}`}>
+                      {activityDisplayTitle(a)}
+                    </span>
+                  </div>
+                )
 
-            return (
-              <li key={a.id} className={rowPad}>
-                {inner}
-              </li>
-            )
-          })
-        )}
-      </ul>
+                if (href) {
+                  return (
+                    <tr key={a.id} className={clsx('border-t border-slate-100', rowBg, borderL)}>
+                      <td colSpan={3} className="p-0">
+                        <Link
+                          to={href}
+                          aria-label={`${activityDisplayTitle(a)} — åbn`}
+                          className={clsx(
+                            'grid gap-2 px-4 py-3.5 transition md:grid-cols-[minmax(0,11rem)_1fr_auto] md:items-center md:gap-4 md:px-8',
+                            credit
+                              ? 'hover:bg-rose-100/70 active:bg-rose-100'
+                              : 'hover:bg-indigo-50/50 active:bg-indigo-50',
+                          )}
+                        >
+                          <span className={credit ? 'text-xs text-rose-800/90' : 'text-xs text-slate-500'}>
+                            {formatDateTime(a.created_at)}
+                          </span>
+                          {titleBlock}
+                          <span className="shrink-0 text-xs font-semibold text-indigo-600 md:text-right">
+                            Vis →
+                          </span>
+                        </Link>
+                      </td>
+                    </tr>
+                  )
+                }
+
+                return (
+                  <tr key={a.id} className={clsx('border-t border-slate-100', rowBg, borderL)}>
+                    <td className={clsx('whitespace-nowrap px-4 py-3 text-xs md:px-8', credit ? 'text-rose-800/90' : 'text-slate-500')}>
+                      {formatDateTime(a.created_at)}
+                    </td>
+                    <td className="px-4 py-3 md:px-8">{titleBlock}</td>
+                    <td className="px-4 py-3 md:px-8" />
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

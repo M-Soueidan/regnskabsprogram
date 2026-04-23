@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { SortableTh } from '@/components/SortableTh'
+import { nextColumnSortState, type ColumnSortDir } from '@/lib/tableSort'
 import { DesktopListCardsToggle } from '@/components/DesktopListCardsToggle'
 import { useDesktopListViewPreference } from '@/hooks/useDesktopListViewPreference'
 import { supabase } from '@/lib/supabase'
@@ -18,6 +20,36 @@ function todayIso() {
 
 const VOUCHERS_VIEW_KEY = 'bilago:vouchersDesktopView'
 
+type VoucherSortKey = 'date' | 'title' | 'category' | 'gross' | 'vat'
+
+function voucherLedgerDate(v: Voucher): string {
+  return v.expense_date ?? v.uploaded_at.slice(0, 10)
+}
+
+function sortVouchers(list: Voucher[], key: VoucherSortKey, dir: ColumnSortDir): Voucher[] {
+  const mul = dir === 'asc' ? 1 : -1
+  return [...list].sort((a, b) => {
+    switch (key) {
+      case 'date':
+        return (
+          mul *
+          String(voucherLedgerDate(a)).localeCompare(String(voucherLedgerDate(b))) ||
+          String(a.uploaded_at).localeCompare(String(b.uploaded_at))
+        )
+      case 'title':
+        return mul * String(a.title ?? '').localeCompare(String(b.title ?? ''), 'da', { sensitivity: 'base' })
+      case 'category':
+        return mul * String(a.category ?? '').localeCompare(String(b.category ?? ''), 'da', { sensitivity: 'base' })
+      case 'gross':
+        return mul * ((a.gross_cents ?? 0) - (b.gross_cents ?? 0))
+      case 'vat':
+        return mul * ((a.vat_cents ?? 0) - (b.vat_cents ?? 0))
+      default:
+        return 0
+    }
+  })
+}
+
 export function VouchersPage() {
   const { currentCompany, user } = useApp()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -32,6 +64,8 @@ export function VouchersPage() {
   const [dragActive, setDragActive] = useState(false)
   const overlayDragDepthRef = useRef(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [sortKey, setSortKey] = useState<VoucherSortKey | null>(null)
+  const [sortDir, setSortDir] = useState<ColumnSortDir>('desc')
 
   async function load() {
     if (!currentCompany) return
@@ -72,7 +106,7 @@ export function VouchersPage() {
     return () => window.clearTimeout(t)
   }, [voucherHighlight, loading, setSearchParams])
 
-  const filteredRows = useMemo(() => {
+  const searchMatched = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     if (!q) return rows
     const tokens = q.split(/\s+/).filter(Boolean)
@@ -96,6 +130,17 @@ export function VouchersPage() {
       return tokens.every((t) => hay.includes(t))
     })
   }, [rows, searchQuery])
+
+  const filteredRows = useMemo(() => {
+    if (sortKey === null) return searchMatched
+    return sortVouchers(searchMatched, sortKey, sortDir)
+  }, [searchMatched, sortKey, sortDir])
+
+  function onSortColumn(col: VoucherSortKey) {
+    const next = nextColumnSortState(col, sortKey, sortDir, true)
+    setSortKey(next.key as VoucherSortKey | null)
+    setSortDir(next.dir)
+  }
 
   async function uploadVoucherFile(file: File) {
     if (!currentCompany || !user) return
@@ -411,11 +456,38 @@ export function VouchersPage() {
         <table className="min-w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
             <tr>
-              <th className="px-4 py-3">Dato</th>
-              <th className="px-4 py-3">Titel</th>
-              <th className="px-4 py-3">Kategori</th>
-              <th className="px-4 py-3 text-right">Beløb</th>
-              <th className="px-4 py-3 text-right">Moms</th>
+              <SortableTh
+                label="Dato"
+                isActive={sortKey === 'date'}
+                direction={sortKey === 'date' ? sortDir : null}
+                onClick={() => onSortColumn('date')}
+              />
+              <SortableTh
+                label="Titel"
+                isActive={sortKey === 'title'}
+                direction={sortKey === 'title' ? sortDir : null}
+                onClick={() => onSortColumn('title')}
+              />
+              <SortableTh
+                label="Kategori"
+                isActive={sortKey === 'category'}
+                direction={sortKey === 'category' ? sortDir : null}
+                onClick={() => onSortColumn('category')}
+              />
+              <SortableTh
+                label="Beløb"
+                isActive={sortKey === 'gross'}
+                direction={sortKey === 'gross' ? sortDir : null}
+                onClick={() => onSortColumn('gross')}
+                align="right"
+              />
+              <SortableTh
+                label="Moms"
+                isActive={sortKey === 'vat'}
+                direction={sortKey === 'vat' ? sortDir : null}
+                onClick={() => onSortColumn('vat')}
+                align="right"
+              />
               <th className="px-4 py-3" />
             </tr>
           </thead>
