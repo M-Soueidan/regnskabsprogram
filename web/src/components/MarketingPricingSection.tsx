@@ -122,7 +122,7 @@ export function MarketingPricingSection({ pub }: { pub: PublicSettings | null })
 
       <div className="relative mx-auto mt-10 max-w-lg rounded-3xl border-2 border-indigo-200 bg-white p-6 shadow-xl shadow-indigo-100/60 sm:p-10">
         {cornerLabel ? (
-          <span className="absolute right-4 top-4 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200">
+          <span className="ml-auto mb-3 block w-fit rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200 sm:absolute sm:right-4 sm:top-4 sm:mb-0">
             {cornerLabel}
           </span>
         ) : null}

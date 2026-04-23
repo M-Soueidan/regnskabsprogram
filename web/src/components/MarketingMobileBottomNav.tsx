@@ -77,6 +77,16 @@ function FaqIcon({ className }: IconProps) {
   )
 }
 
+function LoginIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+      <path d="M10 17l5-5-5-5" />
+      <path d="M15 12H3" />
+    </svg>
+  )
+}
+
 function NavTab({
   to,
   label,
@@ -239,6 +249,16 @@ export function MarketingMobileBottomNav() {
             <div className="mx-auto h-1 w-10 rounded-full bg-slate-200" />
             <h2 className="mt-4 text-center text-sm font-semibold text-slate-900">Mere</h2>
             <ul className="mt-4 space-y-0.5">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => go('/login')}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                >
+                  <LoginIcon className="h-5 w-5 shrink-0 text-indigo-600" />
+                  Log ind
+                </button>
+              </li>
               <li>
                 <button
                   type="button"
