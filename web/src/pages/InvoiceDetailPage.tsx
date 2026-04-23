@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import clsx from 'clsx'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
 import { logActivity } from '@/lib/activity'
@@ -250,17 +251,17 @@ export function InvoiceDetailPage() {
   })()
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-slate-100 pb-6">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3">
+    <div className="flex min-h-0 flex-1 flex-col bg-slate-50 pb-8">
+      <header className="sticky top-0 z-10 border-b border-slate-200/90 bg-white px-4 pb-0 pt-3 shadow-sm">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-2">
           <button
             type="button"
             onClick={() => navigate('/app/invoices')}
-            className="shrink-0 text-sm font-semibold text-sky-600 hover:text-sky-800"
+            className="shrink-0 text-sm font-semibold text-indigo-600 hover:text-indigo-800"
           >
             ← Fakturaer
           </button>
-          <h1 className="min-w-0 truncate text-center text-base font-semibold text-slate-900">
+          <h1 className="min-w-0 truncate text-center text-base font-semibold tracking-tight text-slate-900">
             Faktura {num}
           </h1>
           <div className="relative shrink-0" ref={menuRef}>
@@ -269,7 +270,7 @@ export function InvoiceDetailPage() {
               aria-label="Menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((o) => !o)}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 hover:bg-indigo-50 hover:text-indigo-800"
             >
               <IconDots />
             </button>
@@ -318,72 +319,228 @@ export function InvoiceDetailPage() {
           </div>
         </div>
 
-        <div className="mx-auto mt-3 max-w-lg rounded-xl bg-slate-200/90 p-1">
-          <div className="grid grid-cols-3 gap-0.5">
-            {(
-              [
-                ['faktura', 'Faktura'],
-                ['udsendelser', 'Udsendelser'],
-                ['betalinger', 'Betalinger'],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTab(key)}
-                className={`rounded-lg py-2.5 text-center text-xs font-semibold sm:text-sm ${
-                  tab === key
-                    ? 'bg-sky-500 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <nav
+          className="mx-auto mt-3 flex max-w-lg gap-1 border-b border-slate-200"
+          aria-label="Fakturafaner"
+        >
+          {(
+            [
+              ['faktura', 'Faktura'],
+              ['udsendelser', 'Udsendelser'],
+              ['betalinger', 'Betalinger'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className={clsx(
+                'relative flex-1 pb-3 pt-1 text-center text-sm font-semibold transition',
+                tab === key ? 'text-indigo-700' : 'text-slate-500 hover:text-slate-800',
+              )}
+            >
+              {label}
+              {tab === key ? (
+                <span
+                  className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-indigo-600"
+                  aria-hidden
+                />
+              ) : null}
+            </button>
+          ))}
+        </nav>
       </header>
 
-      <div className="mx-auto w-full max-w-lg flex-1 px-4 pt-4">
+      <div className="mx-auto w-full max-w-lg flex-1 px-4 pt-5">
         {notice ? (
-          <p className="mb-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+          <p className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/80 px-3 py-2.5 text-sm text-indigo-950">
             {notice}
           </p>
         ) : null}
 
         {tab === 'faktura' ? (
+          <div className="space-y-5">
+            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex gap-4 px-4 py-5">
+                <div
+                  className="w-1 shrink-0 self-stretch rounded-full bg-indigo-600"
+                  aria-hidden
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-medium text-slate-500">Kunde</p>
+                      <p className="mt-0.5 text-lg font-semibold text-slate-900">{invoice.customer_name}</p>
+                    </div>
+                    <Link
+                      to={`/app/invoices/${id}/pdf`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-100"
+                    >
+                      <IconPdfSmall />
+                      Se PDF
+                    </Link>
+                  </div>
+                  <p className="mt-4 text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Beløb inkl. moms
+                  </p>
+                  <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-slate-900">
+                    {formatDkk(invoice.gross_cents, invoice.currency)}
+                  </p>
+                  <p className="mt-3 inline-flex items-center gap-2 text-sm text-slate-600">
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                      Status
+                    </span>
+                    <span className={statusLine.className}>{statusLine.text}</span>
+                  </p>
+                </div>
+              </div>
+              <dl className="grid grid-cols-2 gap-3 border-t border-slate-100 bg-slate-50/60 px-4 py-4 text-sm">
+                <div>
+                  <dt className="text-xs text-slate-500">Udstedt</dt>
+                  <dd className="mt-0.5 font-medium text-slate-900">{formatDate(invoice.issue_date)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-slate-500">Forfald</dt>
+                  <dd className="mt-0.5 font-medium text-slate-900">{formatDate(invoice.due_date)}</dd>
+                </div>
+              </dl>
+              {canMarkPaid ? (
+                <div className="border-t border-slate-100 p-4">
+                  <button
+                    type="button"
+                    disabled={markBusy}
+                    onClick={() => void markPaid()}
+                    className="w-full rounded-xl bg-indigo-600 py-3.5 text-[15px] font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+                  >
+                    {markBusy ? 'Gemmer…' : 'Registrér betaling'}
+                  </button>
+                </div>
+              ) : null}
+            </section>
+
+            <section>
+              <h2 className="mb-2 px-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Handlinger
+              </h2>
+              <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <ActionRow
+                  icon={<IconSend className="text-indigo-600" />}
+                  title="Send til kunde"
+                  subtitle={
+                    invoice.status === 'draft' ? 'Fortsæt i redigering' : 'Gensend faktura på e-mail'
+                  }
+                  disabled={sendBusy}
+                  onClick={() => void resendInvoice()}
+                />
+                {invoice.customer_email?.trim() ? (
+                  <ActionRow
+                    icon={<IconMail className="text-indigo-600" />}
+                    title="Skriv til kunde"
+                    subtitle={invoice.customer_email.trim()}
+                    href={`mailto:${invoice.customer_email.trim()}`}
+                  />
+                ) : (
+                  <ActionRow
+                    icon={<IconMail className="text-slate-400" />}
+                    title="Skriv til kunde"
+                    subtitle="E-mail mangler"
+                    disabled
+                  />
+                )}
+                <ActionRow
+                  icon={<IconBell className="text-indigo-600" />}
+                  title="Betalingspåmindelse"
+                  subtitle="E-mail fra jeres skabelon"
+                  disabled={
+                    reminderBusy || invoice.status === 'draft' || !invoice.customer_email?.trim()
+                  }
+                  onClick={() => void sendReminder()}
+                />
+                <ActionRow
+                  icon={<IconCredit className={credit ? 'text-slate-400' : 'text-indigo-600'} />}
+                  title="Kreditnota"
+                  subtitle={credit ? 'Kan ikke krediteres igen' : 'Modregning af denne faktura'}
+                  disabled={credit}
+                  onClick={() => navigate(`/app/invoices/new?creditFor=${id}`)}
+                />
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-dashed border-slate-300 bg-white/80 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fakturaadresse</p>
+              <p className="mt-1 text-sm font-medium text-slate-900">{invoice.customer_name}</p>
+              {invoice.customer_email ? (
+                <p className="mt-0.5 text-sm text-slate-600">{invoice.customer_email}</p>
+              ) : (
+                <p className="mt-0.5 text-sm text-amber-700">Ingen e-mail — tilføj under Rediger</p>
+              )}
+            </section>
+          </div>
+        ) : null}
+
+        {tab === 'udsendelser' ? (
+          <div>
+            <h2 className="mb-3 px-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Tidslinje for e-mail
+            </h2>
+            {dispatchList.length === 0 ? (
+              <p className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
+                Ingen registrerede udsendelser endnu. Når du sender faktura eller påmindelse, vises det her.
+              </p>
+            ) : (
+              <ol className="relative mx-2 border-l-2 border-indigo-200 pl-6">
+                {dispatchList.map((a) => (
+                  <li key={a.id} className="relative pb-8 last:pb-0">
+                    <span
+                      className="absolute -left-[calc(0.5rem+5px)] top-1.5 flex h-2.5 w-2.5 rounded-full border-2 border-white bg-indigo-600 ring-2 ring-indigo-100"
+                      aria-hidden
+                    />
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+                      <p className="text-sm font-medium text-slate-900">{activityDisplayTitle(a)}</p>
+                      <p className="mt-1 text-xs text-slate-500">{formatDateTime(a.created_at)}</p>
+                      <dl className="mt-2 space-y-1 text-xs text-slate-600">
+                        <div className="flex justify-between gap-2">
+                          <dt>Kanal</dt>
+                          <dd className="font-medium text-slate-800">E-mail</dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <dt>Åbning</dt>
+                          <dd className="font-medium text-slate-500">Ikke målt</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        ) : null}
+
+        {tab === 'betalinger' ? (
           <div className="space-y-4">
-            <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-              <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-4">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Kunde</p>
-                  <p className="mt-1 truncate text-lg font-semibold text-slate-900">{invoice.customer_name}</p>
-                </div>
-                <Link
-                  to={`/app/invoices/${id}/pdf`}
-                  className="flex shrink-0 flex-col items-center rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-100"
-                >
-                  <IconPdf />
-                  PDF
-                </Link>
+            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 bg-indigo-50/50 px-4 py-3">
+                <h2 className="text-sm font-semibold text-indigo-950">Betalingsstatus</h2>
+                <p className="mt-0.5 text-xs text-indigo-900/80">Beløb i virksomhedens valuta</p>
               </div>
-              <div className="px-4 py-4">
-                <p className="text-xs text-slate-500">Total</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">
-                  {formatDkk(invoice.gross_cents, invoice.currency)}
-                </p>
-                <p className="mt-2 text-sm text-slate-600">
-                  Faktura: <span className={statusLine.className}>{statusLine.text}</span>
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-3 border-t border-slate-100 px-4 py-3 text-sm">
-                <div>
-                  <p className="text-xs text-slate-500">Dato</p>
-                  <p className="mt-0.5 font-medium text-slate-900">{formatDate(invoice.issue_date)}</p>
+              <div className="divide-y divide-slate-100 px-4 py-0 text-sm">
+                <div className="flex justify-between py-3.5">
+                  <span className="text-slate-600">Faktura i alt</span>
+                  <span className="tabular-nums font-medium text-slate-900">
+                    {formatDkk(invoice.gross_cents, invoice.currency)}
+                  </span>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-500">Forfaldsdato</p>
-                  <p className="mt-0.5 font-medium text-slate-900">{formatDate(invoice.due_date)}</p>
+                <div className="flex justify-between py-3.5">
+                  <span className="text-slate-600">Indbetalt</span>
+                  <span className="tabular-nums font-medium text-slate-900">
+                    {formatDkk(paidCents, invoice.currency)}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-indigo-100 bg-indigo-50/40 py-3.5 -mx-4 px-4">
+                  <span className="font-semibold text-indigo-950">Restbeløb</span>
+                  <span className="tabular-nums font-bold text-indigo-950">
+                    {formatDkk(restCents, invoice.currency)}
+                  </span>
                 </div>
               </div>
               {canMarkPaid ? (
@@ -392,132 +549,66 @@ export function InvoiceDetailPage() {
                     type="button"
                     disabled={markBusy}
                     onClick={() => void markPaid()}
-                    className="w-full rounded-xl bg-sky-500 py-3.5 text-[15px] font-semibold text-white shadow-sm hover:bg-sky-600 disabled:opacity-60"
+                    className="w-full rounded-xl bg-indigo-600 py-3.5 text-[15px] font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
                   >
                     {markBusy ? 'Gemmer…' : 'Registrér betaling'}
                   </button>
                 </div>
               ) : null}
-            </div>
-
-            <div className="grid grid-cols-4 gap-2">
-              <IconAction
-                label="Send"
-                disabled={sendBusy}
-                onClick={() => void resendInvoice()}
-                icon={<IconSend />}
-              />
-              {invoice.customer_email?.trim() ? (
-                <IconAction
-                  label="Skriv"
-                  as="a"
-                  href={`mailto:${invoice.customer_email.trim()}`}
-                  icon={<IconMail />}
-                />
-              ) : (
-                <IconAction label="Skriv" disabled icon={<IconMail />} />
-              )}
-              <IconAction
-                label="Påmind"
-                disabled={reminderBusy || invoice.status === 'draft' || !invoice.customer_email?.trim()}
-                onClick={() => void sendReminder()}
-                icon={<IconBell />}
-              />
-              <IconAction
-                label="Kredit"
-                disabled={credit}
-                onClick={() => navigate(`/app/invoices/new?creditFor=${id}`)}
-                icon={<IconCredit />}
-              />
-            </div>
-
-            <div className="rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Fakturaadresse</p>
-              <p className="mt-1 text-sm font-medium text-slate-900">{invoice.customer_name}</p>
-              {invoice.customer_email ? (
-                <p className="mt-0.5 text-sm text-slate-600">{invoice.customer_email}</p>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {tab === 'udsendelser' ? (
-          <div className="space-y-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Historik</p>
-            {dispatchList.length === 0 ? (
-              <p className="rounded-2xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
-                Ingen registrerede udsendelser endnu. Når du sender faktura eller påmindelse, vises det her.
-              </p>
-            ) : (
-              dispatchList.map((a) => (
-                <div
-                  key={a.id}
-                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-semibold text-sky-700">
-                      {invoice.customer_email ?? 'E-mail'}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-800">{activityDisplayTitle(a)}</p>
-                  <dl className="mt-3 space-y-1.5 text-xs text-slate-600">
-                    <div className="flex justify-between gap-2">
-                      <dt>Sendt</dt>
-                      <dd className="font-medium text-slate-800">{formatDateTime(a.created_at)}</dd>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <dt>Kanal</dt>
-                      <dd className="font-medium text-slate-800">E-mail</dd>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <dt>Åbning</dt>
-                      <dd className="font-medium text-sky-700">Ikke målt</dd>
-                    </div>
-                  </dl>
-                </div>
-              ))
-            )}
-          </div>
-        ) : null}
-
-        {tab === 'betalinger' ? (
-          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-            <div className="divide-y divide-slate-100 px-4 py-1 text-sm">
-              <div className="flex justify-between py-3">
-                <span className="text-slate-600">Faktura i alt</span>
-                <span className="tabular-nums font-medium text-slate-900">
-                  {formatDkk(invoice.gross_cents, invoice.currency)}
-                </span>
-              </div>
-              <div className="flex justify-between py-3">
-                <span className="text-slate-600">Indbetalt</span>
-                <span className="tabular-nums font-medium text-slate-900">
-                  {formatDkk(paidCents, invoice.currency)}
-                </span>
-              </div>
-              <div className="flex justify-between py-3">
-                <span className="font-semibold text-slate-900">Restbeløb</span>
-                <span className="tabular-nums font-bold text-slate-900">
-                  {formatDkk(restCents, invoice.currency)}
-                </span>
-              </div>
-            </div>
-            {canMarkPaid ? (
-              <div className="border-t border-slate-100 p-4">
-                <button
-                  type="button"
-                  disabled={markBusy}
-                  onClick={() => void markPaid()}
-                  className="w-full rounded-xl bg-sky-500 py-3.5 text-[15px] font-semibold text-white shadow-sm hover:bg-sky-600 disabled:opacity-60"
-                >
-                  {markBusy ? 'Gemmer…' : 'Registrér betaling'}
-                </button>
-              </div>
-            ) : null}
+            </section>
           </div>
         ) : null}
       </div>
     </div>
+  )
+}
+
+function ActionRow({
+  icon,
+  title,
+  subtitle,
+  disabled,
+  onClick,
+  href,
+}: {
+  icon: ReactNode
+  title: string
+  subtitle: string
+  disabled?: boolean
+  onClick?: () => void
+  href?: string
+}) {
+  const rowClass = clsx(
+    'flex w-full items-center gap-3 px-4 py-3.5 text-left transition',
+    href
+      ? 'hover:bg-indigo-50/70'
+      : 'hover:bg-indigo-50/70 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent',
+  )
+  const body = (
+    <>
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-slate-900">{title}</span>
+        <span className="mt-0.5 block truncate text-xs text-slate-500">{subtitle}</span>
+      </span>
+      <span className="shrink-0 text-slate-300" aria-hidden>
+        ›
+      </span>
+    </>
+  )
+  if (href) {
+    return (
+      <a href={href} className={rowClass}>
+        {body}
+      </a>
+    )
+  }
+  return (
+    <button type="button" className={rowClass} disabled={disabled} onClick={onClick}>
+      {body}
+    </button>
   )
 }
 
@@ -529,80 +620,82 @@ function IconDots() {
   )
 }
 
-function IconPdf() {
+function IconPdfSmall() {
   return (
-    <svg className="mb-1 h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+    <svg
+      className="h-4 w-4 shrink-0"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      aria-hidden
+    >
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
       <path d="M14 2v6h6M10 12h4M10 16h4M10 8h1" />
     </svg>
   )
 }
 
-function IconSend() {
+function IconSend({ className }: { className?: string }) {
   return (
-    <svg className="mx-auto h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      className={clsx('h-5 w-5 shrink-0', className)}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden
+    >
       <path d="m22 2-7 20-4-9-9-4Z" />
       <path d="M22 2 11 13" />
     </svg>
   )
 }
 
-function IconMail() {
+function IconMail({ className }: { className?: string }) {
   return (
-    <svg className="mx-auto h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      className={clsx('h-5 w-5 shrink-0', className)}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden
+    >
       <rect x="2" y="4" width="20" height="16" rx="2" />
       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
     </svg>
   )
 }
 
-function IconBell() {
+function IconBell({ className }: { className?: string }) {
   return (
-    <svg className="mx-auto h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      className={clsx('h-5 w-5 shrink-0', className)}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden
+    >
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 7-3 7h12s-3 0-3-7" />
       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
     </svg>
   )
 }
 
-function IconCredit() {
+function IconCredit({ className }: { className?: string }) {
   return (
-    <svg className="mx-auto h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      className={clsx('h-5 w-5 shrink-0', className)}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden
+    >
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
       <path d="M14 2v6h6M12 18v-6M9 15h6" />
     </svg>
-  )
-}
-
-function IconAction({
-  label,
-  icon,
-  onClick,
-  disabled,
-  href,
-  as,
-}: {
-  label: string
-  icon: ReactNode
-  disabled?: boolean
-  onClick?: () => void
-  href?: string
-  as?: 'a'
-}) {
-  const cls =
-    'flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white py-3 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:border-sky-300 hover:bg-sky-50/50 disabled:cursor-not-allowed disabled:opacity-40'
-  if (as === 'a' && href) {
-    return (
-      <a href={href} className={cls}>
-        {icon}
-        <span className="mt-1">{label}</span>
-      </a>
-    )
-  }
-  return (
-    <button type="button" className={cls} disabled={disabled} onClick={onClick}>
-      {icon}
-      <span className="mt-1">{label}</span>
-    </button>
   )
 }

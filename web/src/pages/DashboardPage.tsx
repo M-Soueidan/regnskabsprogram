@@ -266,13 +266,13 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      <div className="-mx-4 -mt-2 overflow-hidden rounded-b-3xl bg-gradient-to-b from-sky-600 to-blue-800 px-4 pb-6 pt-3 shadow-lg md:-mx-8 md:rounded-2xl md:shadow-md">
-        <p className="text-center text-sm font-semibold tracking-wide text-white/95">
+      <div className="-mx-4 -mt-2 px-4 pb-2 pt-1 md:-mx-8">
+        <p className="text-center text-sm font-semibold tracking-wide text-slate-900">
           {currentCompany.name}
         </p>
-        <p className="mt-0.5 text-center text-xs text-sky-100/90">Oversigt</p>
+        <p className="mt-0.5 text-center text-xs text-slate-500">Oversigt</p>
 
-        <div className="mx-auto mt-4 max-w-lg rounded-2xl bg-white p-4 shadow-md">
+        <div className="mx-auto mt-3 max-w-lg rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex rounded-full bg-slate-100 p-1">
             <button
               type="button"

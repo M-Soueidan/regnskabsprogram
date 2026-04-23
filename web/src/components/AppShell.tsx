@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { useApp, subscriptionOk } from '@/context/AppProvider'
@@ -7,6 +8,7 @@ import { logoutToLanding } from '@/lib/logoutToLanding'
 import { supabase } from '@/lib/supabase'
 import { BrandMark } from '@/components/BrandMark'
 import { formatDateTime } from '@/lib/format'
+import { getHideTrialPaymentCtaDuringTrial } from '@/lib/trialPaymentUiPreference'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
 import { RegisterPushNotifications } from '@/components/RegisterPushNotifications'
 import { useSupportUnread } from '@/context/SupportUnreadContext'
@@ -274,9 +276,23 @@ function TrialBanner({
   periodEnd: string | null
   companyId: string
 }) {
+  const [, setPrefTick] = useState(0)
+  useEffect(() => {
+    const bump = () => setPrefTick((n) => n + 1)
+    window.addEventListener('storage', bump)
+    window.addEventListener('bilago:trial-payment-cta-pref', bump)
+    return () => {
+      window.removeEventListener('storage', bump)
+      window.removeEventListener('bilago:trial-payment-cta-pref', bump)
+    }
+  }, [])
+
   const daysLeft = periodEnd
     ? Math.max(0, Math.ceil((new Date(periodEnd).getTime() - Date.now()) / 86_400_000))
     : null
+
+  const hideCtaWhileTrialRunning =
+    getHideTrialPaymentCtaDuringTrial() && daysLeft !== null && daysLeft > 0
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
@@ -284,14 +300,21 @@ function TrialBanner({
         Gratis prøveperiode
         {daysLeft !== null ? ` — ${daysLeft} ${daysLeft === 1 ? 'dag' : 'dage'} tilbage` : null}
         . Tilføj betaling for at fortsætte efter perioden slutter.
+        {hideCtaWhileTrialRunning ? (
+          <span className="mt-1 block text-xs text-indigo-800/90">
+            Knappen er skjult under prøveperioden (kan ændres under Indstillinger → Generelt).
+          </span>
+        ) : null}
       </span>
-      <button
-        type="button"
-        className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
-        onClick={() => redirectToStripeCheckout(companyId)}
-      >
-        Tilføj betaling
-      </button>
+      {!hideCtaWhileTrialRunning ? (
+        <button
+          type="button"
+          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+          onClick={() => redirectToStripeCheckout(companyId)}
+        >
+          Tilføj betaling
+        </button>
+      ) : null}
     </div>
   )
 }
