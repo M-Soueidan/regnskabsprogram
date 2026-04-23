@@ -221,7 +221,7 @@ export function VatPage() {
   if (!currentCompany) return <p className="text-slate-600">Vælg virksomhed.</p>
 
   return (
-    <AppPageLayout maxWidth="6xl" className="space-y-6">
+    <AppPageLayout maxWidth="full" className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Moms</h1>

@@ -175,7 +175,7 @@ export function InvoicesPage() {
   }
 
   return (
-    <AppPageLayout maxWidth="6xl" className="space-y-6">
+    <AppPageLayout maxWidth="full" className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Fakturaer</h1>

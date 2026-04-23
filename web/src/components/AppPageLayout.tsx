@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react'
 import clsx from 'clsx'
 
-/** Max-bredde som på Medlemmer (3xl), Indstillinger/Support (2xl), oversigt/fakturaer (6xl). */
-export type AppMaxWidth = '2xl' | '3xl' | '6xl'
+/** Max-bredde: "full" fylder hele viewport (med AppShell-padding), ellers centreret kort. */
+export type AppMaxWidth = '2xl' | '3xl' | '6xl' | 'full'
 
 const maxWidthClass: Record<AppMaxWidth, string> = {
   '2xl': 'max-w-2xl',
   '3xl': 'max-w-3xl',
   '6xl': 'max-w-6xl',
+  full: 'max-w-none',
 }
 
 /**

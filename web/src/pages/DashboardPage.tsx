@@ -265,7 +265,7 @@ export function DashboardPage() {
   const slateBar = '#64748b'
 
   return (
-    <AppPageLayout maxWidth="6xl" className="space-y-6 md:space-y-8">
+    <AppPageLayout maxWidth="full" className="space-y-6 md:space-y-8">
       <section className="space-y-6">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>

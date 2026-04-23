@@ -53,7 +53,7 @@ function ProductDropdown({ active }: { active: boolean }) {
       {open ? (
         <div
           role="menu"
-          className="absolute left-1/2 top-full z-50 mt-3 w-[28rem] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl"
+          className="absolute left-1/2 top-full z-50 mt-3 w-[min(calc(100vw-2rem),38rem)] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl"
         >
           <ul className="grid grid-cols-2 gap-1">
             {marketingFeatureCards.map((f) => (
@@ -76,8 +76,8 @@ function ProductDropdown({ active }: { active: boolean }) {
                         </span>
                       ) : null}
                     </span>
-                    <span className="mt-0.5 block text-xs leading-snug text-slate-500">
-                      {f.desc.length > 70 ? `${f.desc.slice(0, 68)}…` : f.desc}
+                    <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-slate-500">
+                      {f.desc}
                     </span>
                   </span>
                 </Link>
