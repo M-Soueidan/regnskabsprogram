@@ -240,7 +240,7 @@ serve(async (req) => {
   const { data: inv } = await admin
     .from('invoices')
     .select(
-      'id, company_id, invoice_number, customer_name, customer_email, gross_cents, due_date, notes, status',
+      'id, company_id, invoice_number, customer_name, customer_email, gross_cents, due_date, notes, status, credited_invoice_id',
     )
     .eq('id', invoiceId)
     .maybeSingle()
@@ -338,5 +338,42 @@ serve(async (req) => {
     attachments: pdfAttachment ? [pdfAttachment] : undefined,
   })
   if (!send.ok) return jsonResponse({ error: send.message }, 502)
+
+  const credit =
+    Boolean(inv.credited_invoice_id) || Number(inv.gross_cents ?? 0) < 0
+  const eventType: 'invoice_sent' | 'invoice_reminder' | 'invoice_dunning' =
+    kind === 'invoice_reminder'
+      ? 'invoice_reminder'
+      : kind === 'invoice_dunning'
+        ? 'invoice_dunning'
+        : 'invoice_sent'
+  let title: string
+  if (kind === 'invoice_sent') {
+    title = credit
+      ? `Kreditnota ${invoiceNum || '—'} sendt til kunde`
+      : `Faktura ${invoiceNum || '—'} sendt til kunde`
+  } else if (kind === 'invoice_reminder') {
+    title = credit
+      ? `Betalingspåmindelse sendt (kreditnota ${invoiceNum || '—'})`
+      : `Betalingspåmindelse sendt (faktura ${invoiceNum || '—'})`
+  } else {
+    title = credit
+      ? `Rykker sendt (kreditnota ${invoiceNum || '—'})`
+      : `Rykker sendt (faktura ${invoiceNum || '—'})`
+  }
+  const { error: logErr } = await admin.from('activity_events').insert({
+    company_id: inv.company_id,
+    actor_id: userId,
+    event_type: eventType,
+    title,
+    meta: {
+      invoice_id: inv.id,
+      ...(credit ? { is_credit_note: true as const } : {}),
+    },
+  })
+  if (logErr) {
+    console.error('platform-email: activity_events insert failed', logErr)
+  }
+
   return jsonResponse({ ok: true })
 })

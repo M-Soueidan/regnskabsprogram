@@ -746,16 +746,6 @@ export function InvoiceWizardPage() {
           .insert(rows)
         if (lErr) throw new Error(lErr.message)
         if (nextStatus === 'sent') {
-          const sentKind = isCreditNotaFlow ? 'Kreditnota' : 'Faktura'
-          await logActivity(
-            currentCompany.id,
-            'invoice_sent',
-            `${sentKind} ${invoiceNumber} sendt`,
-            {
-              invoice_id: invoiceId,
-              is_credit_note: isCreditNotaFlow,
-            },
-          )
           void sendInvoiceSentEmailWithOptionalPdf({
             companyId: currentCompany.id,
             invoiceId,

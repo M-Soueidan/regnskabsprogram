@@ -32,11 +32,44 @@ function isOverdue(inv: Invoice): boolean {
 }
 
 function invoiceDispatchEvents(events: Activity[], invoiceId: string): Activity[] {
-  const types = new Set(['invoice_sent', 'invoice_reminder_auto', 'invoice_dunning'])
+  const types = new Set([
+    'invoice_sent',
+    'invoice_reminder',
+    'invoice_reminder_auto',
+    'invoice_dunning',
+  ])
   return events.filter((a) => {
     if (!types.has(a.event_type)) return false
     return metaInvoiceId(a.meta) === invoiceId
   })
+}
+
+type DispatchTimelineItem =
+  | { kind: 'event'; event: Activity }
+  | { kind: 'sent_fallback'; createdAt: string }
+
+function dispatchTimelineItems(
+  events: Activity[],
+  invoice: Invoice,
+  invoiceId: string,
+): DispatchTimelineItem[] {
+  const list = invoiceDispatchEvents(events, invoiceId)
+  const items: DispatchTimelineItem[] = list.map((event) => ({ kind: 'event', event }))
+  const hasSentEvent = list.some((e) => e.event_type === 'invoice_sent')
+  if (
+    invoice.sent_at &&
+    !hasSentEvent &&
+    invoice.status !== 'draft' &&
+    invoice.status !== 'cancelled'
+  ) {
+    items.push({ kind: 'sent_fallback', createdAt: invoice.sent_at })
+  }
+  items.sort((a, b) => {
+    const ta = a.kind === 'event' ? a.event.created_at : a.createdAt
+    const tb = b.kind === 'event' ? b.event.created_at : b.createdAt
+    return String(tb).localeCompare(String(ta))
+  })
+  return items
 }
 
 export function InvoiceDetailPage() {
@@ -199,6 +232,7 @@ export function InvoiceDetailPage() {
         kind: 'invoice_reminder',
       })
       setNotice('Påmindelse sendt (hvis skabelon er slået til).')
+      await reloadInvoice()
     } catch (e) {
       setNotice(e instanceof Error ? e.message : 'Kunne ikke sende')
     } finally {
@@ -240,7 +274,7 @@ export function InvoiceDetailPage() {
 
   const credit = isCreditNote(invoice)
   const overdue = isOverdue(invoice)
-  const dispatchList = invoiceDispatchEvents(activity, id)
+  const dispatchTimeline = dispatchTimelineItems(activity, invoice, id)
   const paidCents = invoice.status === 'paid' ? invoice.gross_cents : 0
   const restCents = invoice.gross_cents - paidCents
   const canMarkPaid = invoice.status === 'sent' && !credit
@@ -257,19 +291,19 @@ export function InvoiceDetailPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-slate-50 pb-8">
-      <header className="sticky top-0 z-10 border-b border-slate-200/90 bg-white px-4 pb-0 pt-3 shadow-sm">
-        <div className="mx-auto flex max-w-lg items-center justify-between gap-2">
+      <header className="sticky top-0 z-10 w-full border-b border-slate-200/90 bg-white pb-0 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-sm max-md:-mx-5 md:pt-3">
+        <div className="flex w-full items-center justify-between gap-2 pl-3 pr-2 md:mx-auto md:max-w-lg md:px-4 md:pt-0">
           <button
             type="button"
             onClick={() => navigate('/app/invoices')}
-            className="shrink-0 text-sm font-semibold text-indigo-600 hover:text-indigo-800"
+            className="-ml-1 shrink-0 rounded-lg px-2 py-2 text-left text-sm font-semibold text-indigo-600 hover:bg-indigo-50/80 hover:text-indigo-800"
           >
             ← Fakturaer
           </button>
-          <h1 className="min-w-0 truncate text-center text-base font-semibold tracking-tight text-slate-900">
+          <h1 className="min-w-0 flex-1 truncate text-center text-base font-semibold tracking-tight text-slate-900">
             Faktura {num}
           </h1>
-          <div className="relative shrink-0" ref={menuRef}>
+          <div className="relative -mr-1 shrink-0" ref={menuRef}>
             <button
               type="button"
               aria-label="Menu"
@@ -315,7 +349,7 @@ export function InvoiceDetailPage() {
         </div>
 
         <nav
-          className="mx-auto mt-3 flex max-w-lg gap-1 border-b border-slate-200"
+          className="mt-3 flex w-full border-b border-slate-200 md:mx-auto md:max-w-lg"
           aria-label="Fakturafaner"
         >
           {(
@@ -330,14 +364,14 @@ export function InvoiceDetailPage() {
               type="button"
               onClick={() => setTab(key)}
               className={clsx(
-                'relative flex-1 pb-3 pt-1 text-center text-sm font-semibold transition',
+                'relative min-w-0 flex-1 px-1 pb-3 pt-1 text-center text-sm font-semibold transition md:px-2',
                 tab === key ? 'text-indigo-700' : 'text-slate-500 hover:text-slate-800',
               )}
             >
               {label}
               {tab === key ? (
                 <span
-                  className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-indigo-600"
+                  className="absolute bottom-0 left-1 right-1 h-0.5 rounded-full bg-indigo-600 md:left-2 md:right-2"
                   aria-hidden
                 />
               ) : null}
@@ -480,34 +514,68 @@ export function InvoiceDetailPage() {
             <h2 className="mb-3 px-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Tidslinje for e-mail
             </h2>
-            {dispatchList.length === 0 ? (
+            {dispatchTimeline.length === 0 ? (
               <p className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
-                Ingen registrerede udsendelser endnu. Når du sender faktura eller påmindelse, vises det her.
+                Ingen registrerede udsendelser endnu. Når du sender faktura, påmindelse eller rykker, vises det her.
               </p>
             ) : (
               <ol className="relative mx-2 border-l-2 border-indigo-200 pl-6">
-                {dispatchList.map((a) => (
-                  <li key={a.id} className="relative pb-8 last:pb-0">
-                    <span
-                      className="absolute -left-[calc(0.5rem+5px)] top-1.5 flex h-2.5 w-2.5 rounded-full border-2 border-white bg-indigo-600 ring-2 ring-indigo-100"
-                      aria-hidden
-                    />
-                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
-                      <p className="text-sm font-medium text-slate-900">{activityDisplayTitle(a)}</p>
-                      <p className="mt-1 text-xs text-slate-500">{formatDateTime(a.created_at)}</p>
-                      <dl className="mt-2 space-y-1 text-xs text-slate-600">
-                        <div className="flex justify-between gap-2">
-                          <dt>Kanal</dt>
-                          <dd className="font-medium text-slate-800">E-mail</dd>
-                        </div>
-                        <div className="flex justify-between gap-2">
-                          <dt>Åbning</dt>
-                          <dd className="font-medium text-slate-500">Ikke målt</dd>
-                        </div>
-                      </dl>
-                    </div>
-                  </li>
-                ))}
+                {dispatchTimeline.map((item) =>
+                  item.kind === 'sent_fallback' ? (
+                    <li key="sent-fallback" className="relative pb-8 last:pb-0">
+                      <span
+                        className="absolute -left-[calc(0.5rem+5px)] top-1.5 flex h-2.5 w-2.5 rounded-full border-2 border-white bg-slate-400 ring-2 ring-slate-100"
+                        aria-hidden
+                      />
+                      <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+                        <p className="text-sm font-medium text-slate-900">
+                          {credit ? 'Kreditnota sendt' : 'Faktura sendt'}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {formatDateTime(item.createdAt)}
+                        </p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Dato fra fakturaen; fuld e-mail-log for udsendelser følger fra nu af.
+                        </p>
+                        <dl className="mt-2 space-y-1 text-xs text-slate-600">
+                          <div className="flex justify-between gap-2">
+                            <dt>Kanal</dt>
+                            <dd className="font-medium text-slate-800">E-mail</dd>
+                          </div>
+                          <div className="flex justify-between gap-2">
+                            <dt>Åbning</dt>
+                            <dd className="font-medium text-slate-500">Ikke målt</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    </li>
+                  ) : (
+                    <li key={item.event.id} className="relative pb-8 last:pb-0">
+                      <span
+                        className="absolute -left-[calc(0.5rem+5px)] top-1.5 flex h-2.5 w-2.5 rounded-full border-2 border-white bg-indigo-600 ring-2 ring-indigo-100"
+                        aria-hidden
+                      />
+                      <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+                        <p className="text-sm font-medium text-slate-900">
+                          {activityDisplayTitle(item.event)}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {formatDateTime(item.event.created_at)}
+                        </p>
+                        <dl className="mt-2 space-y-1 text-xs text-slate-600">
+                          <div className="flex justify-between gap-2">
+                            <dt>Kanal</dt>
+                            <dd className="font-medium text-slate-800">E-mail</dd>
+                          </div>
+                          <div className="flex justify-between gap-2">
+                            <dt>Åbning</dt>
+                            <dd className="font-medium text-slate-500">Ikke målt</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    </li>
+                  ),
+                )}
               </ol>
             )}
           </div>

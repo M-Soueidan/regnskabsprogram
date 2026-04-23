@@ -455,10 +455,9 @@ export function DashboardPage() {
             {activity.length === 0 ? (
               <li className="py-6 text-slate-500">Ingen hændelser endnu.</li>
             ) : (
-              activity.map((a, index) => {
+              activity.slice(0, 4).map((a) => {
                 const credit = activityLooksLikeCreditNote(a)
                 const href = activityEventHref(a)
-                const hideOnDesktop = index >= 4
 
                 const inner = (
                   <div className="flex items-start gap-3">
@@ -514,7 +513,7 @@ export function DashboardPage() {
                 )
 
                 return (
-                  <li key={a.id} className={clsx('py-1 first:pt-0', hideOnDesktop && 'md:hidden')}>
+                  <li key={a.id} className="py-1 first:pt-0">
                     {rowShell}
                   </li>
                 )
