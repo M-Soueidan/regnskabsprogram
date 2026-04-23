@@ -96,7 +96,7 @@ function sparkFourParts(
 function MiniBars({ values, color }: { values: number[]; color: string }) {
   const max = Math.max(...values, 1)
   return (
-    <div className="flex h-11 w-14 shrink-0 items-end justify-end gap-1">
+    <div className="flex h-12 w-14 shrink-0 items-end justify-end gap-1">
       {values.map((v, i) => (
         <div
           key={i}
@@ -263,9 +263,9 @@ export function DashboardPage() {
   const slateBar = '#64748b'
 
   return (
-    <div className="space-y-5 md:-mx-8 md:w-[calc(100%+4rem)]">
-      <div className="-mx-4 -mt-2 px-4 pb-2 pt-1 md:mx-0 md:mt-0 md:px-0 md:pb-0 md:pt-0">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-6 md:space-y-8 md:-mx-10 md:w-[calc(100%+5rem)]">
+      <div className="-mx-5 -mt-2 px-5 pb-3 pt-1 md:mx-0 md:mt-0 md:px-0 md:pb-0 md:pt-0">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-lg font-semibold tracking-tight text-slate-900 md:text-xl">
               {currentCompany.name}
@@ -300,18 +300,18 @@ export function DashboardPage() {
           </div>
         </div>
 
-        <div className="mt-5 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="mt-6 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div
             className="h-1 bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-500"
             aria-hidden
           />
-          <div className="border-b border-slate-100 px-4 py-2.5 md:px-6">
+          <div className="border-b border-slate-100 px-5 py-3.5 md:px-8 md:py-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Nøgletal · ekskl. annullerede fakturaer
             </p>
           </div>
           <div className="grid divide-y divide-slate-100 md:grid-cols-3 md:divide-x md:divide-y-0">
-            <div className="flex flex-col gap-2 p-5 md:p-6">
+            <div className="flex flex-col gap-3 p-6 md:p-8">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
                   Faktureret
@@ -324,7 +324,7 @@ export function DashboardPage() {
                 {formatDkk(invoicedPos)}
               </div>
             </div>
-            <div className="flex flex-col gap-2 p-5 md:p-6">
+            <div className="flex flex-col gap-3 p-6 md:p-8">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
                   Kreditnotaer
@@ -339,7 +339,7 @@ export function DashboardPage() {
                 {formatDkk(creditAbs)}
               </div>
             </div>
-            <div className="flex flex-col gap-2 p-5 md:p-6">
+            <div className="flex flex-col gap-3 p-6 md:p-8">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Netto</span>
                 <MiniBars values={netSpark} color={slateBar} />
@@ -353,7 +353,7 @@ export function DashboardPage() {
       </div>
 
       {!ok ? (
-        <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-5">
+        <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6 md:p-7">
           <h2 className="text-base font-semibold text-indigo-900">Aktivér abonnement</h2>
           <p className="mt-1 text-sm text-indigo-800">
             Du kan se oversigten, men fakturaer, bilag og bank kræver aktivt abonnement.
@@ -368,7 +368,7 @@ export function DashboardPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <DashTile
           to="/app/invoices"
           title="Til gode"
@@ -399,13 +399,13 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8 lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-900">
             Brutto pr. dag ({periodMode === 'month' ? `${monthTabLabel} ${yearLabel}` : '30 dage'})
           </h2>
-          <p className="text-xs text-slate-500">Inkl. kreditnotaer (negative dage trækker fra)</p>
-          <div className="mt-4 h-56 sm:h-64">
+          <p className="mt-1 text-xs text-slate-500">Inkl. kreditnotaer (negative dage trækker fra)</p>
+          <div className="mt-6 h-56 sm:h-64">
             {loading ? (
               <div className="flex h-full items-center justify-center text-slate-400">
                 Indlæser…
@@ -443,27 +443,24 @@ export function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
           <h2 className="text-sm font-semibold text-slate-900">Seneste aktivitet</h2>
-          <ul className="mt-3 space-y-3 text-sm">
+          <ul className="mt-4 divide-y divide-slate-100 text-sm">
             {activity.length === 0 ? (
-              <li className="text-slate-500">Ingen hændelser endnu.</li>
+              <li className="py-6 text-slate-500">Ingen hændelser endnu.</li>
             ) : (
               activity.map((a) => {
                 const credit = activityLooksLikeCreditNote(a)
                 return (
-                  <li
-                    key={a.id}
-                    className={`border-b border-slate-100 pb-3 last:border-0 last:pb-0`}
-                  >
+                  <li key={a.id} className="py-4">
                     <div
                       className={
                         credit
-                          ? 'rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 shadow-sm'
-                          : ''
+                          ? 'rounded-lg border border-rose-200 bg-rose-50 px-4 py-3.5 shadow-sm'
+                          : 'py-0.5'
                       }
                     >
-                      <div className="flex items-start gap-2">
+                      <div className="flex items-start gap-3">
                         {credit ? (
                           <span
                             className="mt-0.5 shrink-0 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
@@ -492,7 +489,7 @@ export function DashboardPage() {
             )}
           </ul>
           {activity.length > 0 ? (
-            <div className="mt-4 border-t border-slate-100 pt-3">
+            <div className="mt-5 border-t border-slate-100 pt-5">
               <Link
                 to="/app/activity"
                 className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
@@ -523,14 +520,16 @@ function DashTile({
   return (
     <Link
       to={to}
-      className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition active:scale-[0.99] hover:border-indigo-200 hover:shadow-md"
+      className="group flex min-h-[8.5rem] flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition active:scale-[0.99] hover:border-indigo-200 hover:shadow-md md:min-h-[9rem] md:p-6"
     >
       <div className="flex items-start justify-between gap-1">
         <span className="text-sm font-semibold text-slate-900">{title}</span>
         <span className="text-slate-300 group-hover:text-indigo-600">›</span>
       </div>
-      <div className="mt-1 text-xs text-slate-500">{subtitle}</div>
-      <div className={`mt-3 text-lg font-bold tabular-nums leading-tight ${valueClass}`}>{value}</div>
+      <div className="mt-1.5 text-xs leading-relaxed text-slate-500">{subtitle}</div>
+      <div className={`mt-4 text-lg font-bold tabular-nums leading-tight md:text-xl ${valueClass}`}>
+        {value}
+      </div>
     </Link>
   )
 }
