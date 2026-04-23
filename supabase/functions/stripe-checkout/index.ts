@@ -97,7 +97,7 @@ serve(async (req) => {
 
     const { data: subRow } = await admin
       .from('subscriptions')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, stripe_price_id')
       .eq('company_id', companyId)
       .maybeSingle()
 
@@ -120,6 +120,22 @@ serve(async (req) => {
       )
     }
 
+    // Prislås: hvis virksomheden tidligere har haft en subscription, brug det
+    // oprindelige stripe_price_id — så de bevarer den pris de tilmeldte sig med,
+    // også efter kort-lapse eller kortere opsigelse. Nye kunder får env-var prisen.
+    let checkoutPriceId = priceId
+    const lockedPriceId = subRow?.stripe_price_id as string | undefined
+    if (lockedPriceId) {
+      try {
+        const lockedPrice = await stripe.prices.retrieve(lockedPriceId)
+        if (lockedPrice.active) {
+          checkoutPriceId = lockedPriceId
+        }
+      } catch (e) {
+        console.warn('stripe-checkout locked price retrieve failed', stripeErrorMessage(e))
+      }
+    }
+
     const afterStripeBase =
       returnPath === 'onboarding'
         ? `${appUrl}/onboarding`
@@ -128,7 +144,7 @@ serve(async (req) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: checkoutPriceId, quantity: 1 }],
       success_url: `${afterStripeBase}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${afterStripeBase}?checkout=cancel`,
       client_reference_id: companyId,

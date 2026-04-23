@@ -123,6 +123,7 @@ export interface Database {
           company_id: string
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          stripe_price_id: string | null
           status: string
           current_period_end: string | null
           updated_at: string
@@ -132,12 +133,14 @@ export interface Database {
           company_id: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          stripe_price_id?: string | null
           status?: string
           current_period_end?: string | null
         }
         Update: {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          stripe_price_id?: string | null
           status?: string
           current_period_end?: string | null
         }

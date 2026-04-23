@@ -55,6 +55,7 @@ serve(async (req) => {
       const customerId = session.customer as string | undefined
       if (companyId && customerId) {
         let periodEnd: string | null = null
+        let priceId: string | null = null
         let subStatus: 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' =
           'active'
         if (subId) {
@@ -63,12 +64,14 @@ serve(async (req) => {
           periodEnd = full.current_period_end
             ? new Date(full.current_period_end * 1000).toISOString()
             : null
+          priceId = full.items.data[0]?.price?.id ?? null
         }
         await admin.from('subscriptions').upsert(
           {
             company_id: companyId,
             stripe_customer_id: customerId,
             stripe_subscription_id: subId ?? null,
+            stripe_price_id: priceId,
             status: subStatus,
             current_period_end: periodEnd,
             updated_at: new Date().toISOString(),
@@ -91,10 +94,12 @@ serve(async (req) => {
         event.type === 'customer.subscription.deleted'
           ? 'canceled'
           : mapStatus(sub.status)
+      const priceId = sub.items.data[0]?.price?.id ?? null
       await admin
         .from('subscriptions')
         .update({
           stripe_subscription_id: sub.id,
+          stripe_price_id: priceId,
           status,
           current_period_end: sub.current_period_end
             ? new Date(sub.current_period_end * 1000).toISOString()
