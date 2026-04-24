@@ -2,7 +2,7 @@
  * Service worker: netværk først + Web Push til support.
  * Opdater CACHE-navn ved ændringer for at tvinge opdatering hos klienter.
  */
-const CACHE = 'bilago-sw-v3'
+const CACHE = 'bilago-sw-v4'
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
@@ -19,7 +19,17 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('fetch', (event) => {
-  event.respondWith(fetch(event.request))
+  const { request } = event
+  const url = new URL(request.url)
+
+  // Lad browseren håndtere cross-origin requests og ikke-GET requests direkte.
+  // iOS/PWA kan ellers fejle på fx POST til Supabase Functions med
+  // "FetchEvent.respondWith received an error: TypeError: Load failed".
+  if (request.method !== 'GET' || url.origin !== self.location.origin) {
+    return
+  }
+
+  event.respondWith(fetch(request))
 })
 
 self.addEventListener('push', (event) => {
