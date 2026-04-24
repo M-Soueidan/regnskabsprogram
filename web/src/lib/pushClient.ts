@@ -110,10 +110,35 @@ export async function registerWebPushSubscriptionDetailed(): Promise<{
       body: { subscription: json },
     })
     if (error) {
+      const err = error as Error & {
+        context?: {
+          status?: number
+          json?: () => Promise<unknown>
+          text?: () => Promise<string>
+        }
+      }
+      let detail = error.message
+      const status = err.context?.status
+      if (status) detail = `HTTP ${status}: ${detail}`
+      if (err.context?.json) {
+        try {
+          const body = (await err.context.json()) as { error?: string }
+          if (body?.error) detail = status ? `HTTP ${status}: ${body.error}` : body.error
+        } catch {
+          /* ignore */
+        }
+      } else if (err.context?.text) {
+        try {
+          const text = await err.context.text()
+          if (text) detail = status ? `HTTP ${status}: ${text}` : text
+        } catch {
+          /* ignore */
+        }
+      }
       return {
         ok: false,
         stage: 'function',
-        detail: error.message,
+        detail,
       }
     }
     const payload = data as { ok?: boolean; error?: string } | null
