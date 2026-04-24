@@ -203,7 +203,14 @@ export function SettingsNotificationsPage() {
               </button>
             </div>
           </section>
-        ) : null}
+        ) : (
+          <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <h3 className="text-sm font-semibold text-amber-950">Push ikke klar</h3>
+            <p className="mt-1 text-sm text-amber-900/90">
+              Denne build mangler Web Push-konfiguration eller en understøttet browser/PWA-kontekst.
+            </p>
+          </section>
+        )}
 
         {loading ? (
           <p className="text-sm text-slate-600">Indlæser notifikationsindstillinger…</p>

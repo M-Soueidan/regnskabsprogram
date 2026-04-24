@@ -237,6 +237,10 @@ export function PlatformSupportPage() {
               {pushBusy ? 'Aktiverer…' : 'Slå push til'}
             </button>
           </div>
+        ) : !canUseWebPush() ? (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Push er ikke konfigureret i denne app-build endnu.
+          </div>
         ) : null}
         <div className="mt-4 max-h-[70vh] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           {loading ? (
