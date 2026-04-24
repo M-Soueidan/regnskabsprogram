@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
 
@@ -24,6 +25,9 @@ export function SettingsInvoicePage() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [invoiceSeriesStarted, setInvoiceSeriesStarted] = useState<boolean | null>(
+    null,
+  )
 
   useEffect(() => {
     if (currentCompany) {
@@ -58,6 +62,26 @@ export function SettingsInvoicePage() {
       )
     }
   }, [currentCompany])
+
+  useEffect(() => {
+    if (!currentCompany?.id) {
+      setInvoiceSeriesStarted(null)
+      return
+    }
+    let cancelled = false
+    void supabase
+      .from('invoice_number_seq')
+      .select('last_value')
+      .eq('company_id', currentCompany.id)
+      .maybeSingle()
+      .then(({ data, error: seqError }) => {
+        if (cancelled) return
+        setInvoiceSeriesStarted(seqError ? null : Boolean(data))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [currentCompany?.id])
 
   useEffect(() => {
     let cancelled = false
@@ -104,8 +128,12 @@ export function SettingsInvoicePage() {
         bank_account_number: bankAccount.trim() || null,
         iban: iban.trim() || null,
         invoice_footer_note: footerNote.trim() || null,
-        invoice_starting_number: start,
-        invoice_number_digit_width: width,
+        ...(invoiceSeriesStarted
+          ? {}
+          : {
+              invoice_starting_number: start,
+              invoice_number_digit_width: width,
+            }),
         automation_reminders_enabled: automationEnabled,
         automation_reminder_first_days_after_due: firstDays,
         automation_reminder_interval_days: intervalDays,
@@ -221,6 +249,21 @@ export function SettingsInvoicePage() {
             Første nummer bruges når serien oprettes ved jeres første faktura. Efterfølgende
             fortsætter nummerserien automatisk. Antal cifre styrer fx 0001 mod 000001.
           </p>
+          {invoiceSeriesStarted === true ? (
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Fakturaserien er allerede startet. Startnummer og minimum cifre er derfor låst,
+              så fakturanumrene forbliver fortløbende.
+            </p>
+          ) : invoiceSeriesStarted === false ? (
+            <p className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-900">
+              Når du opretter virksomhedens første faktura eller kladde, bliver serien låst.
+              Du får også en påmindelse i faktura-flowet inden første oprettelse.
+            </p>
+          ) : (
+            <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              Kontrollerer om fakturaserien allerede er startet…
+            </p>
+          )}
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
               <label className="text-sm font-medium text-slate-700" htmlFor="invstart">
@@ -231,7 +274,8 @@ export function SettingsInvoicePage() {
                 type="number"
                 min={1}
                 step={1}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                disabled={invoiceSeriesStarted === true}
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
                 value={invoiceStartingNumber}
                 onChange={(e) => setInvoiceStartingNumber(Number(e.target.value))}
               />
@@ -246,12 +290,21 @@ export function SettingsInvoicePage() {
                 min={2}
                 max={12}
                 step={1}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                disabled={invoiceSeriesStarted === true}
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
                 value={invoiceDigitWidth}
                 onChange={(e) => setInvoiceDigitWidth(Number(e.target.value))}
               />
             </div>
           </div>
+          {invoiceSeriesStarted === false ? (
+            <Link
+              to="/app/invoices/new"
+              className="mt-3 inline-flex text-xs font-medium text-indigo-600"
+            >
+              Opret første faktura
+            </Link>
+          ) : null}
         </div>
 
         <div className="border-t border-slate-100 pt-5">
@@ -426,11 +479,9 @@ export function SettingsInvoicePage() {
               <p className="mt-1 text-xs text-slate-500">Minimum ét døgn mellem hver automatiske udsendelse.</p>
             </div>
           </div>
-          <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-600">
-            Kræver planlagt kald af Edge Function <code className="font-mono text-slate-800">invoice-automation-reminders</code>{' '}
-            med secret <code className="font-mono text-slate-800">INVOICE_AUTOMATION_CRON_SECRET</code> (header{' '}
-            <code className="font-mono text-slate-800">x-bilago-invoice-automation</code>). Sæt secret i Supabase og
-            tilføj fx daglig cron i Supabase eller CI.
+          <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
+            Når automatiske påmindelser er slået til, tjekker Bilago løbende
+            for forfaldne sendte fakturaer og sender påmindelser efter planen.
           </p>
         </div>
 

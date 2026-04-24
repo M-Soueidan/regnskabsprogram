@@ -240,6 +240,19 @@ export interface Database {
           sort_order?: number
         }
       }
+      invoice_number_seq: {
+        Row: {
+          company_id: string
+          last_value: number
+        }
+        Insert: {
+          company_id: string
+          last_value?: number
+        }
+        Update: {
+          last_value?: number
+        }
+      }
       vouchers: {
         Row: {
           id: string

@@ -108,6 +108,12 @@ function defaultDueDateIso() {
   return d.toISOString().slice(0, 10)
 }
 
+function previewInvoiceNumber(start: number, width: number) {
+  const safeStart = Math.max(1, Math.floor(Number(start)) || 1)
+  const safeWidth = Math.min(12, Math.max(2, Math.floor(Number(width)) || 4))
+  return String(safeStart).padStart(Math.max(safeWidth, String(safeStart).length), '0')
+}
+
 function noticeForCvrInvokeFailure(error: unknown, data: unknown): string {
   const fromBody = data as { error?: string } | null
   if (fromBody?.error && typeof fromBody.error === 'string') {
@@ -293,6 +299,12 @@ export function InvoiceWizardPage() {
 
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [invoiceNumberSeriesStarted, setInvoiceNumberSeriesStarted] = useState<
+    boolean | null
+  >(null)
+  const [pendingNumberStatus, setPendingNumberStatus] = useState<
+    Invoice['status'] | null
+  >(null)
 
   const isCreditNotaFlow = Boolean(creditForParam) || isCreditDraft
   const accent = useMemo(() => wizardAccent(isCreditNotaFlow), [isCreditNotaFlow])
@@ -447,6 +459,26 @@ export function InvoiceWizardPage() {
   }, [currentCompany])
 
   useEffect(() => {
+    if (!isNew || !currentCompany?.id) {
+      setInvoiceNumberSeriesStarted(null)
+      return
+    }
+    let cancelled = false
+    void supabase
+      .from('invoice_number_seq')
+      .select('last_value')
+      .eq('company_id', currentCompany.id)
+      .maybeSingle()
+      .then(({ data, error: seqError }) => {
+        if (cancelled) return
+        setInvoiceNumberSeriesStarted(seqError ? null : Boolean(data))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isNew, currentCompany?.id])
+
+  useEffect(() => {
     if (!isNew || !currentCompany || !creditForParam) return
     let cancelled = false
     void (async () => {
@@ -580,6 +612,14 @@ export function InvoiceWizardPage() {
     setLines((prev) => prev.filter((_, j) => j !== i))
   }
 
+  function requestPersist(nextStatus: Invoice['status']) {
+    if (isNew && invoiceNumberSeriesStarted === false) {
+      setPendingNumberStatus(nextStatus)
+      return
+    }
+    void persist(nextStatus)
+  }
+
   async function persist(nextStatus?: Invoice['status']) {
     if (!currentCompany || !user) return
     setSaving(true)
@@ -710,6 +750,7 @@ export function InvoiceWizardPage() {
         const numStr = String(inv.invoice_number ?? '').trim()
         setInvoiceNumber(numStr)
         setStatus(st)
+        setInvoiceNumberSeriesStarted(true)
         clearInvoiceWizardDraft(currentCompany.id)
         if (st === 'sent') {
           navigate('/app/invoices', { replace: true })
@@ -828,8 +869,9 @@ export function InvoiceWizardPage() {
       : 'Faktura'
 
   return (
-    <div className="-mx-4 -mt-6 md:mx-auto md:mt-0 md:max-w-xl">
-      <div className="overflow-hidden bg-white md:mt-4 md:rounded-3xl md:shadow-xl md:ring-1 md:ring-slate-200">
+    <>
+      <div className="-mx-4 -mt-6 md:mx-auto md:mt-0 md:max-w-xl">
+        <div className="overflow-hidden bg-white md:mt-4 md:rounded-3xl md:shadow-xl md:ring-1 md:ring-slate-200">
         {view.kind === 'wizard' && (
           <WizardView
             heading={heading}
@@ -863,8 +905,8 @@ export function InvoiceWizardPage() {
             notes={notes}
             saving={saving}
             error={error}
-            onSave={() => void persist('draft')}
-            onSend={() => void persist('sent')}
+            onSave={() => requestPersist('draft')}
+            onSend={() => requestPersist('sent')}
             isNew={isNew}
             invoiceStatus={status}
             invoiceNumber={invoiceNumber}
@@ -907,6 +949,98 @@ export function InvoiceWizardPage() {
             setDueDate={setDueDate}
           />
         )}
+        </div>
+      </div>
+      {pendingNumberStatus ? (
+        <FirstInvoiceNumberDialog
+          accent={accent}
+          startNumber={currentCompany.invoice_starting_number}
+          digitWidth={currentCompany.invoice_number_digit_width}
+          saving={saving}
+          onCancel={() => setPendingNumberStatus(null)}
+          onOpenSettings={() => {
+            setPendingNumberStatus(null)
+            navigate('/app/settings/invoice')
+          }}
+          onContinue={() => {
+            const next = pendingNumberStatus
+            setPendingNumberStatus(null)
+            void persist(next)
+          }}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function FirstInvoiceNumberDialog({
+  accent,
+  startNumber,
+  digitWidth,
+  saving,
+  onCancel,
+  onOpenSettings,
+  onContinue,
+}: {
+  accent: WizardAccent
+  startNumber: number
+  digitWidth: number
+  saving: boolean
+  onCancel: () => void
+  onOpenSettings: () => void
+  onContinue: () => void
+}) {
+  const previewNumber = previewInvoiceNumber(startNumber, digitWidth)
+  return (
+    <div
+      className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 px-4 pb-4 pt-20 sm:items-center sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="first-invoice-number-title"
+    >
+      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-slate-200">
+        <h2
+          id="first-invoice-number-title"
+          className="text-lg font-semibold text-slate-950"
+        >
+          Første fakturanummer
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Dette bliver virksomhedens første nummer i fakturaserien:{' '}
+          <span className="font-semibold tabular-nums text-slate-950">
+            {previewNumber}
+          </span>
+          . Når den første faktura eller kladde er oprettet, fortsætter serien
+          automatisk og startnummeret kan ikke ændres herfra.
+        </p>
+        <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
+          Du kan ændre startnummer og antal cifre under fakturaindstillinger,
+          før du fortsætter.
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
+          >
+            Åbn fakturaindstillinger
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={onContinue}
+            className={`rounded-full px-5 py-3 text-sm font-semibold ${accent.primaryBtnClasses}`}
+          >
+            Fortsæt med {previewNumber}
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="mt-3 w-full py-2 text-sm font-medium text-slate-500"
+        >
+          Annuller
+        </button>
       </div>
     </div>
   )
@@ -1310,12 +1444,12 @@ function ProductsTab({
     ;(async () => {
       setPopularLoading(true)
       const globalP = supabase.rpc('get_popular_invoice_products_globally', {
-        p_limit: 8,
+        p_limit: 4,
       })
       const companyP = companyId
         ? supabase.rpc('get_popular_invoice_products_for_company', {
             p_company_id: companyId,
-            p_limit: 8,
+            p_limit: 4,
           })
         : Promise.resolve({
             data: null as PopularProductRow[] | null,
@@ -1326,17 +1460,18 @@ function ProductsTab({
       if (cancelled) return
       setPopularLoading(false)
 
-      const companyRows = (cRes.data ?? []) as PopularProductRow[]
+      const companyRows = ((cRes.data ?? []) as PopularProductRow[]).slice(0, 4)
       setCompanyPopular(cRes.error ? [] : companyRows)
 
-      const globalRows = ((gRes.data ?? []) as PopularProductRow[]) 
+      const globalRows = ((gRes.data ?? []) as PopularProductRow[]).slice(0, 4)
+      const companyKeys = new Set(companyRows.map(popularProductKey))
+      const remainingSuggestionCount = Math.max(0, 4 - companyRows.length)
       setGlobalPopular(
         gRes.error
           ? []
-          : globalRows.filter((r) => {
-              const keys = new Set(companyRows.map(popularProductKey))
-              return !keys.has(popularProductKey(r))
-            }),
+          : globalRows
+              .filter((r) => !companyKeys.has(popularProductKey(r)))
+              .slice(0, remainingSuggestionCount),
       )
     })()
     return () => {
@@ -1374,6 +1509,46 @@ function ProductsTab({
           <span className="text-xs text-slate-500">Henter forslag…</span>
         </div>
       ) : null}
+
+      {lines.length > 0 && (
+        <div className="space-y-2">
+          <div className="space-y-2">
+            {lines.map((l, i) => {
+              const adjustedPrice = Math.round(
+                l.unit_price_cents * (1 - l.discount_pct / 100),
+              )
+              return (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 rounded-2xl bg-lime-50 px-4 py-3.5 shadow-sm ring-1 ring-lime-200"
+                >
+                  <button
+                    type="button"
+                    onClick={() => onOpen(i)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <div className="truncate text-[15px] font-semibold text-slate-950">
+                      {l.description || 'Ny fakturalinje'}
+                    </div>
+                    <div className="mt-0.5 text-xs text-lime-900/70">
+                      {l.quantity.toLocaleString('da-DK')} stk. × {formatDkk(adjustedPrice)}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(i)}
+                    aria-label="Fjern linje"
+                    className="shrink-0 p-1 text-lime-900/45 hover:text-red-600"
+                  >
+                    <CloseIcon />
+                  </button>
+                  <ChevronIcon className="mt-1 h-4 w-4 shrink-0 text-lime-900/35" />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {!popularLoading && companyId && companyPopular.length > 0 ? (
         <div className="space-y-2">
@@ -1438,44 +1613,6 @@ function ProductsTab({
           </div>
         </div>
       ) : null}
-
-      {lines.length > 0 && (
-        <div className="divide-y divide-slate-200 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-          {lines.map((l, i) => {
-            const adjustedPrice = Math.round(
-              l.unit_price_cents * (1 - l.discount_pct / 100),
-            )
-            return (
-              <div
-                key={i}
-                className="flex items-start gap-3 px-4 py-3.5"
-              >
-                <button
-                  type="button"
-                  onClick={() => onOpen(i)}
-                  className="min-w-0 flex-1 text-left"
-                >
-                  <div className="truncate text-[15px] font-semibold text-slate-900">
-                    {l.description || 'Ny fakturalinje'}
-                  </div>
-                  <div className="mt-0.5 text-xs text-slate-500">
-                    {l.quantity.toLocaleString('da-DK')} stk. × {formatDkk(adjustedPrice)}
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onRemove(i)}
-                  aria-label="Fjern linje"
-                  className="shrink-0 p-1 text-slate-400 hover:text-red-600"
-                >
-                  <CloseIcon />
-                </button>
-                <ChevronIcon className="mt-1 h-4 w-4 shrink-0 text-slate-300" />
-              </div>
-            )
-          })}
-        </div>
-      )}
     </div>
   )
 }
