@@ -7,6 +7,7 @@ import { downscaleToCanvas, scoreDocumentPresence } from '@/lib/documentDetect'
 import { parseDanishReceiptText } from '@/lib/receiptParse'
 import { renderPdfFirstPageToCanvas } from '@/lib/pdfToCanvas'
 import { maxOcrDimension, ocrReceiptCanvas } from '@/lib/voucherOcr'
+import { VOUCHER_CATEGORY_OPTIONS, inferVoucherCategory } from '@/lib/voucherCategories'
 import type { Database } from '@/types/database'
 
 type VoucherProject = Database['public']['Tables']['voucher_projects']['Row']
@@ -14,6 +15,11 @@ type VoucherProject = Database['public']['Tables']['voucher_projects']['Row']
 /** Lavere tærskel + færre frames — mobil-kamera giver ofte lavere «edge score». */
 const DETECT_THRESHOLD = 0.075
 const FRAMES_STABLE = 6
+
+function isVoucherProjectSchemaError(error: { message?: string; code?: string } | null) {
+  const msg = error?.message?.toLowerCase() ?? ''
+  return error?.code === 'PGRST205' || msg.includes('voucher_projects') || msg.includes('voucher_project_id')
+}
 
 function shouldPreferNativeCameraCapture() {
   if (typeof window === 'undefined') return false
@@ -74,6 +80,7 @@ export function ScanBilagPage() {
     null,
   )
   const [title, setTitle] = useState('')
+  const [category, setCategory] = useState('')
   const [expenseDate, setExpenseDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   )
@@ -82,6 +89,7 @@ export function ScanBilagPage() {
   const [notes, setNotes] = useState('')
   const [voucherProjectId, setVoucherProjectId] = useState('')
   const [projects, setProjects] = useState<VoucherProject[]>([])
+  const [projectFeatureUnavailable, setProjectFeatureUnavailable] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [cameraKey, setCameraKey] = useState(0)
@@ -112,8 +120,16 @@ export function ScanBilagPage() {
       .eq('company_id', currentCompany.id)
       .eq('active', true)
       .order('name', { ascending: true })
-      .then(({ data }) => {
-        if (!cancelled) setProjects(data ?? [])
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (isVoucherProjectSchemaError(error)) {
+          setProjects([])
+          setVoucherProjectId('')
+          setProjectFeatureUnavailable(true)
+          return
+        }
+        setProjectFeatureUnavailable(false)
+        setProjects(data ?? [])
       })
     return () => {
       cancelled = true
@@ -238,6 +254,10 @@ export function ScanBilagPage() {
       const p = parseDanishReceiptText(text)
       setParsed(p)
       setTitle(p.merchantGuess ?? 'Kvittering')
+      setCategory(
+        inferVoucherCategory([p.merchantGuess, p.rawSnippet, p.lineItems.join(' ')].filter(Boolean).join(' ')) ??
+          '',
+      )
       if (p.expenseDateIso) setExpenseDate(p.expenseDateIso)
       if (p.totalKr != null) setGrossKr(p.totalKr.toFixed(2).replace('.', ','))
       if (p.vatRateGuess !== null) setVatRate(String(p.vatRateGuess))
@@ -299,6 +319,11 @@ export function ScanBilagPage() {
       const p = parseDanishReceiptText(text)
       setParsed(p)
       setTitle(p.merchantGuess ?? file.name)
+      setCategory(
+        inferVoucherCategory(
+          [p.merchantGuess, p.rawSnippet, p.lineItems.join(' '), file.name].filter(Boolean).join(' '),
+        ) ?? '',
+      )
       if (p.expenseDateIso) setExpenseDate(p.expenseDateIso)
       if (p.totalKr != null) setGrossKr(p.totalKr.toFixed(2).replace('.', ','))
       if (p.vatRateGuess !== null) setVatRate(String(p.vatRateGuess))
@@ -333,24 +358,27 @@ export function ScanBilagPage() {
       setPhase('review')
       return
     }
+    const voucherInsert: Database['public']['Tables']['vouchers']['Insert'] = {
+      company_id: currentCompany.id,
+      storage_path: path,
+      filename: fname,
+      mime_type: 'image/jpeg',
+      title: title || fname,
+      category: category || null,
+      notes: notes || null,
+      uploaded_by: user.id,
+      expense_date: expenseDate,
+      gross_cents: grossCents,
+      net_cents: netCents,
+      vat_cents: vatCents,
+      vat_rate: rate,
+    }
+    if (!projectFeatureUnavailable) {
+      voucherInsert.voucher_project_id = voucherProjectId || null
+    }
     const { data: inserted, error: dbErr } = await supabase
       .from('vouchers')
-      .insert({
-        company_id: currentCompany.id,
-        storage_path: path,
-        filename: fname,
-        mime_type: 'image/jpeg',
-        title: title || fname,
-        category: 'Scan',
-        voucher_project_id: voucherProjectId || null,
-        notes: notes || null,
-        uploaded_by: user.id,
-        expense_date: expenseDate,
-        gross_cents: grossCents,
-        net_cents: netCents,
-        vat_cents: vatCents,
-        vat_rate: rate,
-      })
+      .insert(voucherInsert)
       .select('id')
       .single()
     if (dbErr) {
@@ -415,6 +443,19 @@ export function ScanBilagPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
+          <label className="block text-sm font-medium text-slate-700">Kategori</label>
+          <select
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="">Vælg kategori</option>
+            {VOUCHER_CATEGORY_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
           <label className="block text-sm font-medium text-slate-700">Bilagsdato</label>
           <input
             type="date"
@@ -444,6 +485,7 @@ export function ScanBilagPage() {
           <select
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
             value={voucherProjectId}
+            disabled={projectFeatureUnavailable}
             onChange={(e) => setVoucherProjectId(e.target.value)}
           >
             <option value="">Uden event/projekt</option>

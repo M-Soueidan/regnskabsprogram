@@ -25,6 +25,18 @@ alter table public.vouchers
 create index if not exists vouchers_project_idx
   on public.vouchers (company_id, voucher_project_id, expense_date);
 
+create or replace function public.has_company_role(p_company_id uuid, p_roles text[])
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.company_members
+    where company_id = p_company_id
+      and user_id = auth.uid()
+      and role = any(p_roles)
+  );
+$$;
+
+grant execute on function public.has_company_role(uuid, text[]) to authenticated;
+
 alter table public.voucher_projects enable row level security;
 
 drop policy if exists "Members read voucher projects" on public.voucher_projects;
@@ -33,18 +45,20 @@ create policy "Members read voucher projects" on public.voucher_projects for sel
 
 drop policy if exists "Writers insert voucher projects" on public.voucher_projects;
 create policy "Writers insert voucher projects" on public.voucher_projects for insert
-  with check (company_id in (select public.user_writable_company_ids()));
+  with check (public.has_company_role(company_id, array['owner', 'manager', 'bookkeeper']));
 
 drop policy if exists "Writers update voucher projects" on public.voucher_projects;
 create policy "Writers update voucher projects" on public.voucher_projects for update
-  using (company_id in (select public.user_writable_company_ids()))
-  with check (company_id in (select public.user_writable_company_ids()));
+  using (public.has_company_role(company_id, array['owner', 'manager', 'bookkeeper']))
+  with check (public.has_company_role(company_id, array['owner', 'manager', 'bookkeeper']));
 
 drop policy if exists "Writers delete voucher projects" on public.voucher_projects;
 create policy "Writers delete voucher projects" on public.voucher_projects for delete
-  using (company_id in (select public.user_writable_company_ids()));
+  using (public.has_company_role(company_id, array['owner', 'manager', 'bookkeeper']));
 
 comment on table public.voucher_projects is
   'Valgfri projekt/event-dimension til bilag, fx Sommerlejr 2026 eller Kundeprojekt X.';
 comment on column public.vouchers.voucher_project_id is
   'Valgfri projekt/event-kobling for rapportering på bilag på tværs af regnskabskategori.';
+
+notify pgrst, 'reload schema';

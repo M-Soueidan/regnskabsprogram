@@ -11,6 +11,7 @@ import { logActivity } from '@/lib/activity'
 import { formatDateOnly, formatDkk } from '@/lib/format'
 import { formatParsedNotes, parseDanishReceiptText } from '@/lib/receiptParse'
 import { canAttemptVoucherOcr, ocrImageOrPdfFile } from '@/lib/voucherOcr'
+import { VOUCHER_CATEGORY_OPTIONS, inferVoucherCategory } from '@/lib/voucherCategories'
 import type { CompanyRole, Database } from '@/types/database'
 
 type Voucher = Database['public']['Tables']['vouchers']['Row']
@@ -63,6 +64,11 @@ function canWriterDeleteVouchers(role: CompanyRole | null) {
   return role === 'owner' || role === 'manager' || role === 'bookkeeper'
 }
 
+function isVoucherProjectSchemaError(error: { message?: string; code?: string } | null) {
+  const msg = error?.message?.toLowerCase() ?? ''
+  return error?.code === 'PGRST205' || msg.includes('voucher_projects') || msg.includes('voucher_project_id')
+}
+
 export function VouchersPage() {
   const { currentCompany, user, currentRole } = useApp()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -72,6 +78,8 @@ export function VouchersPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [projectFilter, setProjectFilter] = useState<'all' | 'none' | string>('all')
   const [newProjectName, setNewProjectName] = useState('')
+  const [projectCreateOpen, setProjectCreateOpen] = useState(false)
+  const [projectFeatureUnavailable, setProjectFeatureUnavailable] = useState(false)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [creatingProject, setCreatingProject] = useState(false)
@@ -84,6 +92,7 @@ export function VouchersPage() {
   const [sortKey, setSortKey] = useState<VoucherSortKey | null>(null)
   const [sortDir, setSortDir] = useState<ColumnSortDir>('desc')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [assigningCategoryId, setAssigningCategoryId] = useState<string | null>(null)
   const [assigningVoucherId, setAssigningVoucherId] = useState<string | null>(null)
 
   const canDeleteVoucher = canWriterDeleteVouchers(currentRole)
@@ -91,6 +100,7 @@ export function VouchersPage() {
   const load = useCallback(async function load() {
     if (!currentCompany) return
     setLoading(true)
+    setError(null)
     const [voucherRes, projectRes] = await Promise.all([
       supabase
       .from('vouchers')
@@ -104,8 +114,17 @@ export function VouchersPage() {
         .eq('active', true)
         .order('name', { ascending: true }),
     ])
+    if (voucherRes.error) {
+      setError(voucherRes.error.message)
+    }
     setRows(voucherRes.data ?? [])
-    setProjects(projectRes.data ?? [])
+    if (isVoucherProjectSchemaError(projectRes.error)) {
+      setProjectFeatureUnavailable(true)
+      setProjects([])
+    } else {
+      setProjectFeatureUnavailable(false)
+      setProjects(projectRes.data ?? [])
+    }
     setLoading(false)
   }, [currentCompany])
 
@@ -225,6 +244,7 @@ export function VouchersPage() {
     let grossKrForDb = ''
     let vatRateForDb = '25'
     let notesForDb: string | null = null
+    let categoryForDb: string | null = inferVoucherCategory(file.name)
 
     if (canOcr) {
       try {
@@ -232,6 +252,12 @@ export function VouchersPage() {
         const parsed = parseDanishReceiptText(text)
         notesForDb = formatParsedNotes(parsed)
         titleForDb = parsed.merchantGuess ?? titleForDb
+        categoryForDb =
+          inferVoucherCategory(
+            [parsed.merchantGuess, parsed.rawSnippet, parsed.lineItems.join(' '), file.name]
+              .filter(Boolean)
+              .join(' '),
+          ) ?? categoryForDb
         if (parsed.expenseDateIso) {
           expenseDateForDb = parsed.expenseDateIso
         }
@@ -268,24 +294,27 @@ export function VouchersPage() {
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
+    const voucherInsert: Database['public']['Tables']['vouchers']['Insert'] = {
+      company_id: currentCompany.id,
+      storage_path: path,
+      filename: file.name,
+      mime_type: file.type || null,
+      title: titleForDb,
+      category: categoryForDb,
+      notes: notesForDb,
+      uploaded_by: user.id,
+      expense_date: expenseDateForDb,
+      gross_cents: grossCents,
+      net_cents: netCents,
+      vat_cents: vatCents,
+      vat_rate: rate,
+    }
+    if (!projectFeatureUnavailable) {
+      voucherInsert.voucher_project_id = null
+    }
     const { data: inserted, error: dbErr } = await supabase
       .from('vouchers')
-      .insert({
-        company_id: currentCompany.id,
-        storage_path: path,
-        filename: file.name,
-        mime_type: file.type || null,
-        title: titleForDb,
-        category: null,
-        voucher_project_id: null,
-        notes: notesForDb,
-        uploaded_by: user.id,
-        expense_date: expenseDateForDb,
-        gross_cents: grossCents,
-        net_cents: netCents,
-        vat_cents: vatCents,
-        vat_rate: rate,
-      })
+      .insert(voucherInsert)
       .select('id')
       .single()
     if (dbErr) {
@@ -319,11 +348,20 @@ export function VouchersPage() {
       .single()
     setCreatingProject(false)
     if (projectErr || !data) {
-      setError(projectErr?.message ?? 'Kunne ikke oprette event/projekt')
+      if (isVoucherProjectSchemaError(projectErr)) {
+        setProjectFeatureUnavailable(true)
+        setError(
+          'Event/projekt er ikke aktiveret i databasen endnu. Kør den nye Supabase migration og genindlæs siden.',
+        )
+      } else {
+        setError(projectErr?.message ?? 'Kunne ikke oprette event/projekt')
+      }
       return
     }
+    setProjectFeatureUnavailable(false)
     setProjects((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name, 'da')))
     setProjectFilter(data.id)
+    setProjectCreateOpen(false)
     setNewProjectName('')
   }
 
@@ -338,11 +376,37 @@ export function VouchersPage() {
       .eq('company_id', currentCompany.id)
     setAssigningVoucherId(null)
     if (updateErr) {
-      setError(updateErr.message)
+      if (isVoucherProjectSchemaError(updateErr)) {
+        setProjectFeatureUnavailable(true)
+        setError(
+          'Event/projekt er ikke aktiveret i databasen endnu. Kør den nye Supabase migration og genindlæs siden.',
+        )
+      } else {
+        setError(updateErr.message)
+      }
       return
     }
     setRows((prev) =>
       prev.map((row) => (row.id === v.id ? { ...row, voucher_project_id: projectId } : row)),
+    )
+  }
+
+  async function updateVoucherCategory(v: Voucher, category: string | null) {
+    if (!currentCompany) return
+    setAssigningCategoryId(v.id)
+    setError(null)
+    const { error: updateErr } = await supabase
+      .from('vouchers')
+      .update({ category })
+      .eq('id', v.id)
+      .eq('company_id', currentCompany.id)
+    setAssigningCategoryId(null)
+    if (updateErr) {
+      setError(updateErr.message)
+      return
+    }
+    setRows((prev) =>
+      prev.map((row) => (row.id === v.id ? { ...row, category } : row)),
     )
   }
 
@@ -536,23 +600,31 @@ export function VouchersPage() {
           type="search"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Søg efter titel, fil, kategori, beløb, dato …"
+          placeholder="Søg efter titel, fil, kategori, event, beløb, dato …"
           className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
           autoComplete="off"
         />
       </label>
 
+      {projectFeatureUnavailable ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Event/projekt kræver en databaseopdatering. Kør migrationen
+          <span className="font-mono"> 20260424170000_voucher_projects.sql</span> og genindlæs siden.
+        </p>
+      ) : null}
+
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <label className="min-w-0 flex-1">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Event/projekt
+                Filtrer på event/projekt
               </span>
               <select
                 value={projectFilter}
+                disabled={projectFeatureUnavailable}
                 onChange={(e) => setProjectFilter(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 disabled:bg-slate-50 disabled:text-slate-400"
               >
                 <option value="all">Alle bilag</option>
                 <option value="none">Uden event/projekt</option>
@@ -563,28 +635,41 @@ export function VouchersPage() {
                 ))}
               </select>
             </label>
-            <label className="min-w-0 flex-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Nyt event/projekt
-              </span>
-              <div className="mt-1 flex gap-2">
-                <input
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="Sommerlejr 2026"
-                  className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
-                />
-                <button
-                  type="button"
-                  disabled={creatingProject || !newProjectName.trim()}
-                  onClick={() => void createProject()}
-                  className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  Opret
-                </button>
-              </div>
-            </label>
+            <button
+              type="button"
+              disabled={projectFeatureUnavailable}
+              onClick={() => setProjectCreateOpen((open) => !open)}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
+            >
+              {projectCreateOpen ? 'Luk oprettelse' : 'Opret event/projekt'}
+            </button>
           </div>
+
+          {projectCreateOpen ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Navn på nyt event/projekt
+                </span>
+                <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    placeholder="Sommerlejr 2026"
+                    className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
+                  />
+                  <button
+                    type="button"
+                    disabled={creatingProject || !newProjectName.trim()}
+                    onClick={() => void createProject()}
+                    className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {creatingProject ? 'Opretter…' : 'Opret'}
+                  </button>
+                </div>
+              </label>
+            </div>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-3 gap-2">
@@ -674,14 +759,33 @@ export function VouchersPage() {
                 </div>
                 <p className="line-clamp-2 text-sm font-medium text-slate-800">{v.title ?? '—'}</p>
                 <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 text-xs text-slate-600">
-                  <span>{v.category ? `Kategori: ${v.category}` : '—'}</span>
+                  <label className="min-w-0 flex-1">
+                    <span className="sr-only">Kategori</span>
+                    <select
+                      value={v.category ?? ''}
+                      disabled={assigningCategoryId === v.id}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        void updateVoucherCategory(v, e.target.value || null)
+                      }}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs text-slate-700"
+                    >
+                      <option value="">Uden kategori</option>
+                      {VOUCHER_CATEGORY_OPTIONS.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <span>{v.vat_cents ? `Moms ${formatDkk(v.vat_cents)}` : 'Moms —'}</span>
                 </div>
                 <label className="block border-t border-slate-100 pt-2">
                   <span className="sr-only">Event/projekt</span>
                   <select
                     value={v.voucher_project_id ?? ''}
-                    disabled={assigningVoucherId === v.id}
+                    disabled={projectFeatureUnavailable || assigningVoucherId === v.id}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) => {
                       e.stopPropagation()
@@ -794,11 +898,25 @@ export function VouchersPage() {
                       : formatDateOnly(v.uploaded_at)}
                   </td>
                   <td className="px-4 py-3 text-slate-800">{v.title ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-600">{v.category ?? '—'}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    <select
+                      value={v.category ?? ''}
+                      disabled={assigningCategoryId === v.id}
+                      onChange={(e) => void updateVoucherCategory(v, e.target.value || null)}
+                      className="w-full min-w-40 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                    >
+                      <option value="">—</option>
+                      {VOUCHER_CATEGORY_OPTIONS.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                   <td className="px-4 py-3 text-slate-600">
                     <select
                       value={v.voucher_project_id ?? ''}
-                      disabled={assigningVoucherId === v.id}
+                      disabled={projectFeatureUnavailable || assigningVoucherId === v.id}
                       onChange={(e) => void updateVoucherProject(v, e.target.value || null)}
                       className="w-full min-w-40 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
                     >
