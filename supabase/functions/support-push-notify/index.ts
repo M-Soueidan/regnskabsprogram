@@ -15,35 +15,41 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const anon = Deno.env.get('SUPABASE_ANON_KEY')!
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const eventSecret = Deno.env.get('PLATFORM_EVENT_SECRET')?.trim()
   const vapidPublic = Deno.env.get('VAPID_PUBLIC_KEY')
   const vapidPrivate = Deno.env.get('VAPID_PRIVATE_KEY')
   const vapidSubject = normalizeVapidSubject(Deno.env.get('VAPID_SUBJECT'))
 
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader) {
-    return jsonResponse({ error: 'Unauthorized' }, 401)
-  }
-
-  const base = supabaseUrl.replace(/\/$/, '')
-  const authRes = await fetch(`${base}/auth/v1/user`, {
-    headers: { Authorization: authHeader, apikey: anon },
-  })
-  if (!authRes.ok) {
-    return jsonResponse({ error: 'Unauthorized' }, 401)
-  }
-  const authUser = (await authRes.json()) as { id?: string }
-  if (!authUser.id) {
-    return jsonResponse({ error: 'Unauthorized' }, 401)
-  }
+  const serverEvent = req.headers.get('x-bilago-platform-event')?.trim()
+  const isServerEvent = Boolean(eventSecret && serverEvent && serverEvent === eventSecret)
 
   const admin = createClient(supabaseUrl, serviceKey)
-  const { data: staffRow, error: staffErr } = await admin
-    .from('platform_staff')
-    .select('user_id')
-    .eq('user_id', authUser.id)
-    .maybeSingle()
-  if (staffErr || !staffRow) {
-    return jsonResponse({ error: 'Forbidden' }, 403)
+  if (!isServerEvent) {
+    if (!authHeader) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+
+    const base = supabaseUrl.replace(/\/$/, '')
+    const authRes = await fetch(`${base}/auth/v1/user`, {
+      headers: { Authorization: authHeader, apikey: anon },
+    })
+    if (!authRes.ok) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+    const authUser = (await authRes.json()) as { id?: string }
+    if (!authUser.id) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+
+    const { data: staffRow, error: staffErr } = await admin
+      .from('platform_staff')
+      .select('user_id')
+      .eq('user_id', authUser.id)
+      .maybeSingle()
+    if (staffErr || !staffRow) {
+      return jsonResponse({ error: 'Forbidden' }, 403)
+    }
   }
 
   if (!vapidPublic || !vapidPrivate) {
