@@ -84,12 +84,12 @@ serve(async (req) => {
       ? {
           title: 'Ny virksomhed oprettet',
           body: coRow?.cvr ? `${companyName} (CVR ${coRow.cvr})` : companyName,
-          url: '/platform/companies',
+          url: `/platform/companies?company=${encodeURIComponent(companyId)}`,
         }
       : {
           title: 'Ny betaling',
           body: `${companyName} har aktiveret abonnement.`,
-          url: '/platform/companies',
+          url: `/platform/companies?company=${encodeURIComponent(companyId)}`,
         },
   )
 

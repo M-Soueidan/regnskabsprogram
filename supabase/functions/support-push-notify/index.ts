@@ -108,7 +108,7 @@ serve(async (req) => {
   const payload = JSON.stringify({
     title: 'Ny besked fra Bilago',
     body: `Support har skrevet i tråden for ${companyName}.`,
-    url: '/app/support',
+    url: `/app/support?ticket=${encodeURIComponent(ticketId)}`,
   })
 
   let sent = 0

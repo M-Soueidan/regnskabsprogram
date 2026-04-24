@@ -32,6 +32,7 @@ import { VouchersPage } from '@/pages/VouchersPage'
 import { ScanBilagPage } from '@/pages/ScanBilagPage'
 import { BankPage } from '@/pages/BankPage'
 import { SettingsLayout } from '@/pages/settings/SettingsLayout'
+import { SettingsMenuPage } from '@/pages/settings/SettingsMenuPage'
 import { SettingsGeneralPage } from '@/pages/settings/SettingsGeneralPage'
 import { SettingsInvoicePage } from '@/pages/settings/SettingsInvoicePage'
 import { SettingsSubscriptionPage } from '@/pages/settings/SettingsSubscriptionPage'
@@ -167,10 +168,7 @@ export default function App() {
               <Route path="/app/dashboard" element={<DashboardPage />} />
               <Route path="/app/activity" element={<ActivityLogPage />} />
               <Route path="/app/settings" element={<SettingsLayout />}>
-                <Route
-                  index
-                  element={<Navigate to="/app/settings/general" replace />}
-                />
+                <Route index element={<SettingsMenuPage />} />
                 <Route path="general" element={<SettingsGeneralPage />} />
                 <Route path="invoice" element={<SettingsInvoicePage />} />
                 <Route path="notifications" element={<SettingsNotificationsPage />} />

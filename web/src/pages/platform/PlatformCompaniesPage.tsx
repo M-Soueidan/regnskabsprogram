@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { SortableTh } from '@/components/SortableTh'
 import { nextColumnSortState, type ColumnSortDir } from '@/lib/tableSort'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useApp } from '@/context/AppProvider'
 import type { Database } from '@/types/database'
 import { supabase } from '@/lib/supabase'
@@ -30,6 +30,7 @@ function sortCompanies(list: Company[], key: CompanySortKey, dir: ColumnSortDir)
 
 export function PlatformCompaniesPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { refresh } = useApp()
   const { markSeen } = usePlatformAdminNotifications()
   const [rows, setRows] = useState<Company[]>([])
@@ -38,6 +39,7 @@ export function PlatformCompaniesPage() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [sortKey, setSortKey] = useState<CompanySortKey | null>(null)
   const [sortDir, setSortDir] = useState<ColumnSortDir>('desc')
+  const requestedCompanyId = searchParams.get('company')
 
   const displayRows = useMemo(() => {
     if (sortKey === null) return rows
@@ -140,7 +142,14 @@ export function PlatformCompaniesPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {displayRows.map((c) => (
-                <tr key={c.id} className="hover:bg-slate-50/80">
+                <tr
+                  key={c.id}
+                  className={
+                    requestedCompanyId === c.id
+                      ? 'bg-indigo-50/70 ring-1 ring-inset ring-indigo-200'
+                      : 'hover:bg-slate-50/80'
+                  }
+                >
                   <td className="px-4 py-3 font-medium text-slate-900">{c.name}</td>
                   <td className="hidden px-4 py-3 text-slate-600 sm:table-cell">
                     {c.cvr ?? '—'}

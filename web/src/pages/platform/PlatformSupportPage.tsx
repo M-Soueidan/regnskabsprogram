@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useApp } from '@/context/AppProvider'
 import { formatDateTime, formatSupportTicketNumber } from '@/lib/format'
 import {
@@ -24,6 +25,7 @@ const statusLabels: Record<string, string> = {
 export function PlatformSupportPage() {
   const { user } = useApp()
   const { markSeen } = usePlatformAdminNotifications()
+  const [searchParams] = useSearchParams()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -54,6 +56,13 @@ export function PlatformSupportPage() {
   useEffect(() => {
     void loadTickets()
   }, [loadTickets])
+
+  useEffect(() => {
+    const requestedTicketId = searchParams.get('ticket')
+    if (!requestedTicketId) return
+    if (!tickets.some((t) => t.id === requestedTicketId)) return
+    setSelectedId((current) => current ?? requestedTicketId)
+  }, [tickets, searchParams])
 
   useEffect(() => {
     void markSeen('support')

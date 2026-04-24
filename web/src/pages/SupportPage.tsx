@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { AppPageLayout } from '@/components/AppPageLayout'
 import { useApp } from '@/context/AppProvider'
 import { useSupportUnread } from '@/context/SupportUnreadContext'
@@ -59,6 +59,7 @@ function SupportMessageList({ messages }: { messages: Message[] }) {
 export function SupportPage() {
   const { currentCompany, user } = useApp()
   const { refresh: refreshUnread } = useSupportUnread()
+  const [searchParams] = useSearchParams()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [messagesByTicket, setMessagesByTicket] = useState<Record<string, Message[]>>({})
   const [body, setBody] = useState('')
@@ -181,6 +182,13 @@ export function SupportPage() {
     () => tickets.find((t) => t.status !== 'closed') ?? null,
     [tickets],
   )
+  const requestedTicketId = searchParams.get('ticket')
+  const selectedTicket = useMemo(() => {
+    if (requestedTicketId) {
+      return tickets.find((t) => t.id === requestedTicketId) ?? null
+    }
+    return activeTicket
+  }, [tickets, requestedTicketId, activeTicket])
   const closedTickets = useMemo(
     () => tickets.filter((t) => t.status === 'closed').slice(0, CLOSED_TICKETS_LIMIT),
     [tickets],
@@ -304,20 +312,20 @@ export function SupportPage() {
         <div className="text-sm text-slate-500">Indlæser…</div>
       ) : (
         <>
-          {activeTicket ? (
+          {selectedTicket ? (
             <section className="space-y-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-lg font-semibold text-slate-900">
-                  Sag {formatSupportTicketNumber(activeTicket.ticket_number)}
+                  Sag {formatSupportTicketNumber(selectedTicket.ticket_number)}
                 </h2>
                 <p className="text-xs text-slate-500">
                   Status:{' '}
                   <span className="font-medium text-slate-700">
-                    {customerTicketStatusLabel(activeTicket.status)}
+                    {customerTicketStatusLabel(selectedTicket.status)}
                   </span>
                 </p>
               </div>
-              <SupportMessageList messages={messagesByTicket[activeTicket.id] ?? []} />
+              <SupportMessageList messages={messagesByTicket[selectedTicket.id] ?? []} />
             </section>
           ) : tickets.length > 0 ? (
             <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
@@ -327,7 +335,7 @@ export function SupportPage() {
 
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <label className="text-xs font-medium text-slate-600">
-              {activeTicket ? 'Ny besked' : 'Start en ny sag'}
+              {selectedTicket ? 'Ny besked' : 'Start en ny sag'}
             </label>
             <textarea
               value={body}

@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
 import { AppPageLayout } from '@/components/AppPageLayout'
 
@@ -10,6 +10,12 @@ const tabs = [
 ]
 
 export function SettingsLayout() {
+  const location = useLocation()
+  const isMenuPage = location.pathname === '/app/settings'
+  const activeTab =
+    tabs.find((tab) => location.pathname === tab.to || location.pathname.startsWith(`${tab.to}/`)) ??
+    null
+
   return (
     <AppPageLayout maxWidth="2xl" className="space-y-6">
       <div>
@@ -17,7 +23,33 @@ export function SettingsLayout() {
         <p className="text-sm text-slate-600">Virksomhed, faktura, notifikationer og abonnement</p>
       </div>
 
-      <nav className="flex gap-1 border-b border-slate-200" aria-label="Indstillinger">
+      {!isMenuPage ? (
+        <div className="md:hidden">
+          <Link
+            to="/app/settings"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            <svg
+              viewBox="0 0 20 20"
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="m12.5 4.5-5 5 5 5" />
+            </svg>
+            Tilbage til indstillinger
+          </Link>
+          {activeTab ? (
+            <p className="mt-3 text-sm font-semibold text-slate-900">{activeTab.label}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <nav className="hidden gap-1 border-b border-slate-200 md:flex" aria-label="Indstillinger">
         {tabs.map((t) => (
           <NavLink
             key={t.to}
