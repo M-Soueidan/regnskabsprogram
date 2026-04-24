@@ -12,6 +12,19 @@ import { maxOcrDimension, ocrReceiptCanvas } from '@/lib/voucherOcr'
 const DETECT_THRESHOLD = 0.075
 const FRAMES_STABLE = 6
 
+function shouldPreferNativeCameraCapture() {
+  if (typeof window === 'undefined') return false
+  const ua = window.navigator.userAgent
+  const isiOS =
+    /iPhone|iPad|iPod/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  const isStandalone =
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    // Safari iOS legacy PWA flag
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  return isiOS && isStandalone
+}
+
 type Phase =
   | 'init'
   | 'no_camera'
@@ -67,6 +80,7 @@ export function ScanBilagPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [cameraKey, setCameraKey] = useState(0)
+  const [preferNativeCapture] = useState(() => shouldPreferNativeCameraCapture())
 
   const stopCamera = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -82,6 +96,11 @@ export function ScanBilagPage() {
   }, [stopCamera, previewUrl])
 
   useEffect(() => {
+    if (preferNativeCapture) {
+      setPhase('no_camera')
+      setCameraError(null)
+      return
+    }
     let cancelled = false
     ;(async () => {
       try {
@@ -113,7 +132,7 @@ export function ScanBilagPage() {
       streamRef.current?.getTracks().forEach((t) => t.stop())
       streamRef.current = null
     }
-  }, [cameraKey])
+  }, [cameraKey, preferNativeCapture])
 
   /* Dokument-detektion på video */
   useEffect(() => {
@@ -464,8 +483,22 @@ export function ScanBilagPage() {
 
       {phase === 'no_camera' ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center text-white">
-          <p>{cameraError}</p>
+          <p>
+            {preferNativeCapture
+              ? 'På iPhone i PWA bruger vi systemets kamera direkte, så du slipper for live webkamera-flowet.'
+              : cameraError}
+          </p>
           <label className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold">
+            Tag billede
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => void handleGalleryFile(e.target.files?.[0] ?? null)}
+            />
+          </label>
+          <label className="rounded-xl bg-white/10 px-5 py-3 text-sm font-semibold text-white">
             Vælg billede eller PDF
             <input
               type="file"
