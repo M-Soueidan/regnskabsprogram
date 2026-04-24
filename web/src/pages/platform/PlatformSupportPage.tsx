@@ -148,35 +148,7 @@ export function PlatformSupportPage() {
     await loadMessages(selectedId)
     await loadTickets()
     setSending(false)
-    void supabase.functions
-      .invoke('support-push-notify', { body: { ticket_id: selectedId } })
-      .then(({ data, error }) => {
-        if (error) {
-          console.warn('[support-push-notify]', error.message)
-          setPushResult(`Push-fejl: ${error.message}`)
-          return
-        }
-        if (data && typeof data === 'object') {
-          const d = data as { sent?: number; subscriptionCount?: number; firstError?: string }
-          if ((d.subscriptionCount ?? 0) === 0) {
-            setPushResult('Push: 0 abonnementer fundet for kunden.')
-            console.info(
-              '[push] Ingen push-abonnementer for virksomhedens medlemmer — kunden får ikke notifikation.',
-            )
-          } else if ((d.sent ?? 0) > 0) {
-            setPushResult(
-              `Push sendt til ${d.sent} enhed${(d.sent ?? 0) === 1 ? '' : 'er'}.`,
-            )
-          } else if ((d.sent ?? 0) === 0 && d.firstError) {
-            setPushResult(`Push-fejl: ${d.firstError}`)
-            console.warn('[support-push-notify] send', d.firstError)
-          } else {
-            setPushResult(
-              `Push-resultat: ${d.sent ?? 0} sendt / ${d.subscriptionCount ?? 0} abonnementer.`,
-            )
-          }
-        }
-      })
+    setPushResult('Push sendes automatisk fra serveren.')
   }
 
   async function setStatus(status: Ticket['status']) {
