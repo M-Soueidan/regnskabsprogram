@@ -105,42 +105,31 @@ export async function registerWebPushSubscriptionDetailed(): Promise<{
     }
   }
 
-  const { data: sessionData } = await supabase.auth.getSession()
-  const token = sessionData.session?.access_token
-  if (!token) {
-    return { ok: false, stage: 'session', detail: 'Ingen aktiv session/access token.' }
-  }
-
-  const base = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '')
-  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string
-  let res: Response
   try {
-    res = await fetch(`${base}/functions/v1/push-subscribe`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        apikey: anon,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ subscription: json }),
+    const { data, error } = await supabase.functions.invoke('push-subscribe', {
+      body: { subscription: json },
     })
+    if (error) {
+      return {
+        ok: false,
+        stage: 'function',
+        detail: error.message,
+      }
+    }
+    const payload = data as { ok?: boolean; error?: string } | null
+    if (payload?.ok !== true) {
+      return {
+        ok: false,
+        stage: 'function',
+        detail: payload?.error ?? 'Funktionen returnerede ikke ok=true.',
+      }
+    }
   } catch (err) {
     return {
       ok: false,
       stage: 'function',
       detail: err instanceof Error ? err.message : 'Netværksfejl ved kald til push-subscribe.',
     }
-  }
-
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`
-    try {
-      const payload = (await res.json()) as { error?: string }
-      if (payload?.error) detail = `${detail}: ${payload.error}`
-    } catch {
-      /* ignore */
-    }
-    return { ok: false, stage: 'function', detail }
   }
 
   return { ok: true, stage: 'done' }
