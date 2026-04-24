@@ -102,6 +102,23 @@ serve(async (req) => {
       .maybeSingle()
 
     let customerId = subRow?.stripe_customer_id as string | undefined
+    // Verificer at en gemt customer faktisk findes i Stripe — typisk fejl efter
+    // test→live-skift hvor DB-rækken peger på en customer der kun findes i test mode.
+    if (customerId) {
+      try {
+        const existing = await stripe.customers.retrieve(customerId)
+        if ((existing as { deleted?: boolean }).deleted) {
+          customerId = undefined
+        }
+      } catch (e) {
+        const msg = stripeErrorMessage(e).toLowerCase()
+        if (msg.includes('no such customer') || msg.includes('resource_missing')) {
+          customerId = undefined
+        } else {
+          throw e
+        }
+      }
+    }
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email ?? undefined,
@@ -113,7 +130,10 @@ serve(async (req) => {
         {
           company_id: companyId,
           stripe_customer_id: customerId,
+          stripe_subscription_id: null,
+          stripe_price_id: null,
           status: 'incomplete',
+          current_period_end: null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'company_id' },
