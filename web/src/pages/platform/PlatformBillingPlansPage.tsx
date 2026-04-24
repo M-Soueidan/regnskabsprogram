@@ -73,6 +73,8 @@ export function PlatformBillingPlansPage() {
     return map
   }, [planFeatures])
 
+  const activePlans = useMemo(() => plans.filter((plan) => plan.active), [plans])
+
   if (platformRole !== 'superadmin') {
     return (
       <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -144,6 +146,54 @@ export function PlatformBillingPlansPage() {
     setPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, ...patch } : p)))
   }
 
+  async function movePlan(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= plans.length) return
+    const next = [...plans]
+    const [item] = next.splice(index, 1)
+    next.splice(targetIndex, 0, item)
+    const reordered = next.map((plan, i) => ({ ...plan, sort_order: (i + 1) * 10 }))
+    setPlans(reordered)
+    setError(null)
+    const updates = await Promise.all(
+      reordered.map((plan) =>
+        supabase
+          .from('billing_plans')
+          .update({ sort_order: plan.sort_order, updated_at: new Date().toISOString() })
+          .eq('id', plan.id),
+      ),
+    )
+    const updateErr = updates.find((res) => res.error)?.error
+    if (updateErr) {
+      setError(updateErr.message)
+      await load()
+    }
+  }
+
+  async function moveFeature(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= features.length) return
+    const next = [...features]
+    const [item] = next.splice(index, 1)
+    next.splice(targetIndex, 0, item)
+    const reordered = next.map((feature, i) => ({ ...feature, sort_order: (i + 1) * 10 }))
+    setFeatures(reordered)
+    setError(null)
+    const updates = await Promise.all(
+      reordered.map((feature) =>
+        supabase
+          .from('billing_features')
+          .update({ sort_order: feature.sort_order, updated_at: new Date().toISOString() })
+          .eq('id', feature.id),
+      ),
+    )
+    const updateErr = updates.find((res) => res.error)?.error
+    if (updateErr) {
+      setError(updateErr.message)
+      await load()
+    }
+  }
+
   async function setPlanFeature(plan: Plan, feature: Feature, enabled: boolean, limitValue: number | null) {
     setError(null)
     const { data, error: upsertErr } = await supabase
@@ -185,6 +235,7 @@ export function PlatformBillingPlansPage() {
             <table className="min-w-full text-left text-sm">
               <thead className="text-xs uppercase text-slate-500">
                 <tr>
+                  <th className="py-2 pr-3">Rækkefølge</th>
                   <th className="py-2 pr-3">Plan</th>
                   <th className="py-2 pr-3">Pris</th>
                   <th className="py-2 pr-3">Stripe Price ID</th>
@@ -192,8 +243,32 @@ export function PlatformBillingPlansPage() {
                 </tr>
               </thead>
               <tbody>
-                {plans.map((plan) => (
+                {plans.map((plan, index) => (
                   <tr key={plan.id} className="border-t border-slate-100">
+                    <td className="py-3 pr-3">
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          disabled={index === 0}
+                          onClick={() => void movePlan(index, -1)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+                          aria-label={`Flyt ${plan.name} op`}
+                          title="Flyt op"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          disabled={index === plans.length - 1}
+                          onClick={() => void movePlan(index, 1)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+                          aria-label={`Flyt ${plan.name} ned`}
+                          title="Flyt ned"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                    </td>
                     <td className="py-3 pr-3">
                       <div className="font-medium text-slate-900">{plan.name}</div>
                       <div className="font-mono text-xs text-slate-500">{plan.slug}</div>
@@ -322,7 +397,7 @@ export function PlatformBillingPlansPage() {
             <thead className="text-xs uppercase text-slate-500">
               <tr>
                 <th className="sticky left-0 bg-white py-2 pr-4">Feature</th>
-                {plans.map((plan) => (
+                {activePlans.map((plan) => (
                   <th key={plan.id} className="min-w-52 py-2 pr-4">
                     {plan.name}
                   </th>
@@ -330,13 +405,39 @@ export function PlatformBillingPlansPage() {
               </tr>
             </thead>
             <tbody>
-              {features.map((feature) => (
+              {features.map((feature, featureIndex) => (
                 <tr key={feature.id} className="border-t border-slate-100">
                   <td className="sticky left-0 bg-white py-3 pr-4">
-                    <div className="font-medium text-slate-900">{feature.name}</div>
-                    <div className="font-mono text-xs text-slate-500">{feature.key}</div>
+                    <div className="flex items-start gap-2">
+                      <div className="flex shrink-0 gap-1">
+                        <button
+                          type="button"
+                          disabled={featureIndex === 0}
+                          onClick={() => void moveFeature(featureIndex, -1)}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+                          aria-label={`Flyt ${feature.name} op`}
+                          title="Flyt op"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          disabled={featureIndex === features.length - 1}
+                          onClick={() => void moveFeature(featureIndex, 1)}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+                          aria-label={`Flyt ${feature.name} ned`}
+                          title="Flyt ned"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-medium text-slate-900">{feature.name}</div>
+                        <div className="font-mono text-xs text-slate-500">{feature.key}</div>
+                      </div>
+                    </div>
                   </td>
-                  {plans.map((plan) => {
+                  {activePlans.map((plan) => {
                     const row = planFeatureByKey.get(`${plan.id}:${feature.id}`)
                     return (
                       <td key={plan.id} className="py-3 pr-4 align-top">
