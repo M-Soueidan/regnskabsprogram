@@ -19,6 +19,7 @@ type MarketingPlan = BillingPlan & {
     key: string
     name: string
     limitValue: number | null
+    sortOrder: number
   }>
 }
 
@@ -160,13 +161,29 @@ export function MarketingPricingSection({ pub }: { pub: PublicSettings | null })
           key: feature.key,
           name: feature.name,
           limitValue: row.limit_value,
+          sortOrder: feature.sort_order,
         })
         featuresByPlan.set(row.plan_id, list)
       }
+      const rawPlans = ((planRes.data ?? []) as BillingPlan[]).map((plan) => ({
+        ...plan,
+        features: featuresByPlan.get(plan.id) ?? [],
+      }))
+      const firstTierByKey = new Map<string, number>()
+      rawPlans.forEach((plan, index) => {
+        for (const f of plan.features) {
+          if (!firstTierByKey.has(f.key)) firstTierByKey.set(f.key, index)
+        }
+      })
       setPlans(
-        ((planRes.data ?? []) as BillingPlan[]).map((plan) => ({
+        rawPlans.map((plan) => ({
           ...plan,
-          features: featuresByPlan.get(plan.id) ?? [],
+          features: [...plan.features].sort((a, b) => {
+            const ta = firstTierByKey.get(a.key) ?? 0
+            const tb = firstTierByKey.get(b.key) ?? 0
+            if (ta !== tb) return ta - tb
+            return a.sortOrder - b.sortOrder
+          }),
         })),
       )
     })()
@@ -186,7 +203,16 @@ export function MarketingPricingSection({ pub }: { pub: PublicSettings | null })
         <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h2>
         <p className="mx-auto mt-3 max-w-2xl text-base text-slate-600 sm:text-lg">{subtitle}</p>
 
-        <div className="mx-auto mt-8 grid max-w-4xl gap-4 lg:grid-cols-2">
+        <div
+          className={
+            'mx-auto mt-8 grid gap-4 ' +
+            (visiblePlans.length === 3
+              ? 'max-w-6xl lg:grid-cols-3'
+              : visiblePlans.length === 2
+                ? 'max-w-4xl lg:grid-cols-2'
+                : 'max-w-4xl lg:grid-cols-2')
+          }
+        >
           {visiblePlans.map((plan) => {
             const isPaid = plan.monthly_price_cents > 0
             const planCornerLabel =
