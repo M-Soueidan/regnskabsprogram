@@ -46,6 +46,23 @@ serve(async (req) => {
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const admin = createClient(supabaseUrl, serviceKey)
 
+  async function notifyPlatformActiveSubscription(companyId: string) {
+    const secret = Deno.env.get('PLATFORM_EVENT_SECRET')?.trim()
+    if (!secret) return
+    try {
+      await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/platform-event-push`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-bilago-platform-event': secret,
+        },
+        body: JSON.stringify({ kind: 'subscription', company_id: companyId }),
+      })
+    } catch (e) {
+      console.warn('platform-event-push subscription notify failed', e)
+    }
+  }
+
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session
@@ -78,6 +95,9 @@ serve(async (req) => {
           },
           { onConflict: 'company_id' },
         )
+        if (subStatus === 'active') {
+          await notifyPlatformActiveSubscription(companyId)
+        }
       }
     }
 
@@ -95,6 +115,11 @@ serve(async (req) => {
           ? 'canceled'
           : mapStatus(sub.status)
       const priceId = sub.items.data[0]?.price?.id ?? null
+      const { data: prevRow } = await admin
+        .from('subscriptions')
+        .select('status')
+        .eq('company_id', companyId)
+        .maybeSingle()
       await admin
         .from('subscriptions')
         .update({
@@ -107,6 +132,9 @@ serve(async (req) => {
           updated_at: new Date().toISOString(),
         })
         .eq('company_id', companyId)
+      if (status === 'active' && prevRow?.status !== 'active') {
+        await notifyPlatformActiveSubscription(companyId)
+      }
     }
   } catch (e) {
     console.error(e)
