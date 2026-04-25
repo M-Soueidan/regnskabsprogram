@@ -114,6 +114,7 @@ export function VouchersPage() {
   const [expenseLinkMode, setExpenseLinkMode] = useState<ExpenseLinkMode>('single_use')
   const [creatingExpenseLink, setCreatingExpenseLink] = useState(false)
   const [expenseLink, setExpenseLink] = useState<string | null>(null)
+  const [projectOverviewOpen, setProjectOverviewOpen] = useState(false)
 
   const canDeleteVoucher = canWriterDeleteVouchers(currentRole)
   const featureGateKnown = billingEntitlements.length > 0
@@ -658,6 +659,25 @@ export function VouchersPage() {
               onChange={(e) => void onFile(e)}
             />
           </label>
+          <div className="flex min-h-[44px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <select
+              value={expenseLinkMode}
+              onChange={(e) => setExpenseLinkMode(e.target.value as ExpenseLinkMode)}
+              className="min-h-[44px] border-0 bg-white px-3 text-sm text-slate-900 focus:outline-none"
+              aria-label="Udlægslink type"
+            >
+              <option value="single_use">1 upload</option>
+              <option value="time_window">1 time</option>
+            </select>
+            <button
+              type="button"
+              disabled={creatingExpenseLink}
+              onClick={() => void createExpenseUploadLink()}
+              className="inline-flex min-h-[44px] items-center justify-center border-l border-slate-200 bg-white px-4 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-70"
+            >
+              {creatingExpenseLink ? 'Opretter…' : 'Udlægslink'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -669,55 +689,27 @@ export function VouchersPage() {
 
       {error ? <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p> : null}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-slate-900">Udlægslink</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Send et sikkert link til en medarbejder eller hjælper, så de kan uploade bilag og betalingsoplysninger.
-            </p>
-          </div>
+      {expenseLink ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <select
-              value={expenseLinkMode}
-              onChange={(e) => setExpenseLinkMode(e.target.value as ExpenseLinkMode)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900"
-            >
-              <option value="single_use">1 upload</option>
-              <option value="time_window">Flere uploads i 1 time</option>
-            </select>
+            <span className="shrink-0 text-sm font-semibold text-emerald-950">
+              Udlægslink klar
+            </span>
+            <input
+              readOnly
+              value={expenseLink}
+              className="min-w-0 flex-1 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-900"
+            />
             <button
               type="button"
-              disabled={creatingExpenseLink}
-              onClick={() => void createExpenseUploadLink()}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-70"
+              onClick={() => void copyExpenseLink()}
+              className="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
             >
-              {creatingExpenseLink ? 'Opretter…' : 'Opret link'}
+              Kopiér
             </button>
           </div>
         </div>
-        {expenseLink ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-900">
-              Link gyldigt i 1 time
-            </p>
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-              <input
-                readOnly
-                value={expenseLink}
-                className="min-w-0 flex-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-900"
-              />
-              <button
-                type="button"
-                onClick={() => void copyExpenseLink()}
-                className="rounded-xl border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
-              >
-                Kopiér
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </div>
+      ) : null}
 
       <div className="flex flex-wrap items-end justify-between gap-3 border-t border-slate-200 pt-2">
         <h2 className="text-base font-semibold text-slate-900">Dine bilag</h2>
@@ -765,18 +757,16 @@ export function VouchersPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
-        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <label className="min-w-0 flex-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Filtrer på event/projekt
-              </span>
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="min-w-0 flex-1 sm:max-w-md">
+              <span className="sr-only">Filtrer på event/projekt</span>
               <select
                 value={projectFilter}
                 disabled={projectFeatureUnavailable || !canUseVoucherProjects}
                 onChange={(e) => setProjectFilter(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 disabled:bg-slate-50 disabled:text-slate-400"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 disabled:bg-slate-50 disabled:text-slate-400"
               >
                 <option value="all">Alle bilag</option>
                 <option value="none">Uden event/projekt</option>
@@ -791,14 +781,36 @@ export function VouchersPage() {
               type="button"
               disabled={projectFeatureUnavailable || !canUseVoucherProjects}
               onClick={() => setProjectCreateOpen((open) => !open)}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
             >
-              {projectCreateOpen ? 'Luk oprettelse' : 'Opret event/projekt'}
+              {projectCreateOpen ? 'Luk' : '+ Event'}
             </button>
           </div>
 
+          <div className="flex flex-wrap gap-2 text-sm">
+            <span className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-700">
+              {filteredRows.length} bilag
+            </span>
+            <span className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-700">
+              {formatDkk(voucherTotals.gross)}
+            </span>
+            <span className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-700">
+              Moms {formatDkk(voucherTotals.vat)}
+            </span>
+            {projectTotals.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setProjectOverviewOpen((open) => !open)}
+                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Event-overblik
+              </button>
+            ) : null}
+          </div>
+        </div>
+
           {projectCreateOpen ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
               <label className="block">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Navn på nyt event/projekt
@@ -822,25 +834,9 @@ export function VouchersPage() {
               </label>
             </div>
           ) : null}
-        </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <p className="text-xs font-medium text-slate-500">Bilag</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">{filteredRows.length}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <p className="text-xs font-medium text-slate-500">Udgift</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">{formatDkk(voucherTotals.gross)}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <p className="text-xs font-medium text-slate-500">Moms</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">{formatDkk(voucherTotals.vat)}</p>
-          </div>
-        </div>
       </div>
 
-      {projectTotals.length > 0 ? (
+      {projectTotals.length > 0 && projectOverviewOpen ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-slate-900">Største events/projekter</h3>
