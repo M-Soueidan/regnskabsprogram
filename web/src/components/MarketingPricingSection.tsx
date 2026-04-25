@@ -11,18 +11,19 @@ import type { Database } from '@/types/database'
 
 type PublicSettings = Database['public']['Tables']['platform_public_settings']['Row']
 type BillingPlan = Database['public']['Tables']['billing_plans']['Row']
-type BillingFeature = Database['public']['Tables']['billing_features']['Row']
-type BillingPlanFeature = Database['public']['Tables']['billing_plan_features']['Row']
+type BillingPlanBullet = Database['public']['Tables']['billing_plan_bullets']['Row']
+
+type MarketingBullet = {
+  id: string
+  kind: 'feature' | 'text' | 'heading'
+  featureId: string | null
+  title: string
+  subtitle: string | null
+  sortOrder: number
+}
 
 type MarketingPlan = BillingPlan & {
-  features: Array<{
-    key: string
-    name: string
-    description: string | null
-    limitValue: number | null
-    sortOrder: number
-    firstTierIndex: number
-  }>
+  bullets: MarketingBullet[]
 }
 
 function CheckCircle({ className }: { className?: string }) {
@@ -135,61 +136,37 @@ export function MarketingPricingSection({ pub }: { pub: PublicSettings | null })
     if (!isSupabaseConfigured) return
     let cancelled = false
     void (async () => {
-      const [planRes, featureRes, planFeatureRes] = await Promise.all([
+      const [planRes, bulletRes] = await Promise.all([
         supabase
           .from('billing_plans')
           .select('*')
           .eq('active', true)
+          .eq('marketing_hidden', false)
           .order('sort_order', { ascending: true })
           .order('monthly_price_cents', { ascending: true }),
         supabase
-          .from('billing_features')
+          .from('billing_plan_bullets')
           .select('*')
-          .eq('active', true)
           .order('sort_order', { ascending: true }),
-        supabase
-          .from('billing_plan_features')
-          .select('*')
-          .eq('enabled', true),
       ])
-      if (cancelled || planRes.error || featureRes.error || planFeatureRes.error) return
-      const featureById = new Map((featureRes.data ?? []).map((f: BillingFeature) => [f.id, f]))
-      const featuresByPlan = new Map<string, MarketingPlan['features']>()
-      for (const row of (planFeatureRes.data ?? []) as BillingPlanFeature[]) {
-        const feature = featureById.get(row.feature_id)
-        if (!feature) continue
-        const list = featuresByPlan.get(row.plan_id) ?? []
+      if (cancelled || planRes.error || bulletRes.error) return
+      const bulletsByPlan = new Map<string, MarketingBullet[]>()
+      for (const row of (bulletRes.data ?? []) as BillingPlanBullet[]) {
+        const list = bulletsByPlan.get(row.plan_id) ?? []
         list.push({
-          key: feature.key,
-          name: feature.name,
-          description: feature.description,
-          limitValue: row.limit_value,
-          sortOrder: feature.sort_order,
+          id: row.id,
+          kind: row.kind,
+          featureId: row.feature_id,
+          title: row.title,
+          subtitle: row.subtitle,
+          sortOrder: row.sort_order,
         })
-        featuresByPlan.set(row.plan_id, list)
+        bulletsByPlan.set(row.plan_id, list)
       }
-      const rawPlans = ((planRes.data ?? []) as BillingPlan[]).map((plan) => ({
-        ...plan,
-        features: featuresByPlan.get(plan.id) ?? [],
-      }))
-      const firstTierByKey = new Map<string, number>()
-      rawPlans.forEach((plan, index) => {
-        for (const f of plan.features) {
-          if (!firstTierByKey.has(f.key)) firstTierByKey.set(f.key, index)
-        }
-      })
       setPlans(
-        rawPlans.map((plan, planIndex) => ({
+        ((planRes.data ?? []) as BillingPlan[]).map((plan) => ({
           ...plan,
-          features: [...plan.features]
-            .map((f) => ({
-              ...f,
-              firstTierIndex: firstTierByKey.get(f.key) ?? planIndex,
-            }))
-            .sort((a, b) => {
-              if (a.firstTierIndex !== b.firstTierIndex) return a.firstTierIndex - b.firstTierIndex
-              return a.sortOrder - b.sortOrder
-            }),
+          bullets: bulletsByPlan.get(plan.id) ?? [],
         })),
       )
     })()
@@ -228,10 +205,17 @@ export function MarketingPricingSection({ pub }: { pub: PublicSettings | null })
                   ? 'Start her'
                   : null
             const previousPlan = index > 0 ? visiblePlans[index - 1] : null
-            const previousKeys = new Set(previousPlan?.features.map((f) => f.key) ?? [])
-            const newFeatures = previousPlan
-              ? plan.features.filter((f) => !previousKeys.has(f.key))
-              : plan.features
+            const previousFeatureIds = new Set(
+              previousPlan?.bullets
+                .filter((b) => b.kind === 'feature' && b.featureId)
+                .map((b) => b.featureId as string) ?? [],
+            )
+            const visibleBullets = previousPlan
+              ? plan.bullets.filter(
+                  (b) =>
+                    !(b.kind === 'feature' && b.featureId && previousFeatureIds.has(b.featureId)),
+                )
+              : plan.bullets
             return (
               <div
                 key={plan.id}
@@ -305,26 +289,29 @@ export function MarketingPricingSection({ pub }: { pub: PublicSettings | null })
                       </div>
                     </li>
                   ) : null}
-                  {newFeatures.map((f) => (
-                    <li key={f.key} className="flex items-start gap-3 py-2.5">
-                      <CheckCircle className="h-5 w-5" />
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-slate-900">
-                          {f.name}
+                  {visibleBullets.map((b) =>
+                    b.kind === 'heading' ? (
+                      <li key={b.id} className="py-2.5">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {b.title}
                         </div>
-                        {f.description ? (
-                          <div className="mt-0.5 text-xs text-slate-500">
-                            {f.description}
+                      </li>
+                    ) : (
+                      <li key={b.id} className="flex items-start gap-3 py-2.5">
+                        <CheckCircle className="h-5 w-5" />
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-slate-900">
+                            {b.title}
                           </div>
-                        ) : null}
-                        {f.limitValue !== null ? (
-                          <div className="mt-0.5 text-xs text-slate-500">
-                            {f.limitValue} pr. måned
-                          </div>
-                        ) : null}
-                      </div>
-                    </li>
-                  ))}
+                          {b.subtitle ? (
+                            <div className="mt-0.5 text-xs text-slate-500">
+                              {b.subtitle}
+                            </div>
+                          ) : null}
+                        </div>
+                      </li>
+                    ),
+                  )}
                 </ul>
 
                 <Link

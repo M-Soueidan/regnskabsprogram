@@ -158,6 +158,7 @@ export interface Database {
           monthly_price_cents: number
           compare_price_cents: number | null
           active: boolean
+          marketing_hidden: boolean
           is_default_free: boolean
           sort_order: number
           created_at: string
@@ -172,6 +173,7 @@ export interface Database {
           monthly_price_cents?: number
           compare_price_cents?: number | null
           active?: boolean
+          marketing_hidden?: boolean
           is_default_free?: boolean
           sort_order?: number
           created_at?: string
@@ -185,7 +187,41 @@ export interface Database {
           monthly_price_cents?: number
           compare_price_cents?: number | null
           active?: boolean
+          marketing_hidden?: boolean
           is_default_free?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+      }
+      billing_plan_bullets: {
+        Row: {
+          id: string
+          plan_id: string
+          kind: 'feature' | 'text' | 'heading'
+          feature_id: string | null
+          title: string
+          subtitle: string | null
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          kind: 'feature' | 'text' | 'heading'
+          feature_id?: string | null
+          title: string
+          subtitle?: string | null
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          plan_id?: string
+          kind?: 'feature' | 'text' | 'heading'
+          feature_id?: string | null
+          title?: string
+          subtitle?: string | null
           sort_order?: number
           updated_at?: string
         }

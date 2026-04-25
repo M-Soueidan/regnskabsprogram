@@ -6,22 +6,8 @@ import type { Database } from '@/types/database'
 type Plan = Database['public']['Tables']['billing_plans']['Row']
 type Feature = Database['public']['Tables']['billing_features']['Row']
 type PlanFeature = Database['public']['Tables']['billing_plan_features']['Row']
-
-type NewPlanState = {
-  name: string
-  slug: string
-  monthlyPriceKr: string
-  stripePriceId: string
-  description: string
-}
-
-const emptyPlan: NewPlanState = {
-  name: '',
-  slug: '',
-  monthlyPriceKr: '',
-  stripePriceId: '',
-  description: '',
-}
+type Bullet = Database['public']['Tables']['billing_plan_bullets']['Row']
+type BulletKind = Bullet['kind']
 
 function slugify(value: string) {
   return value
@@ -34,30 +20,43 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, '')
 }
 
+function priceToCents(raw: string): number {
+  return Math.max(0, Math.round((Number(raw.replace(',', '.')) || 0) * 100))
+}
+
+function nowIso() {
+  return new Date().toISOString()
+}
+
 export function PlatformBillingPlansPage() {
   const { platformRole } = useApp()
   const [plans, setPlans] = useState<Plan[]>([])
   const [features, setFeatures] = useState<Feature[]>([])
   const [planFeatures, setPlanFeatures] = useState<PlanFeature[]>([])
-  const [newPlan, setNewPlan] = useState<NewPlanState>(emptyPlan)
-  const [newFeatureName, setNewFeatureName] = useState('')
-  const [newFeatureKey, setNewFeatureKey] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [bullets, setBullets] = useState<Bullet[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [openEntitlementsFor, setOpenEntitlementsFor] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    const [planRes, featureRes, planFeatureRes] = await Promise.all([
+    const [planRes, featureRes, planFeatureRes, bulletRes] = await Promise.all([
       supabase.from('billing_plans').select('*').order('sort_order', { ascending: true }).order('name'),
       supabase.from('billing_features').select('*').order('sort_order', { ascending: true }).order('name'),
       supabase.from('billing_plan_features').select('*'),
+      supabase.from('billing_plan_bullets').select('*').order('sort_order', { ascending: true }),
     ])
-    if (planRes.error || featureRes.error || planFeatureRes.error) {
-      setError(planRes.error?.message ?? featureRes.error?.message ?? planFeatureRes.error?.message ?? 'Kunne ikke hente planer')
+    const firstErr =
+      planRes.error?.message ??
+      featureRes.error?.message ??
+      planFeatureRes.error?.message ??
+      bulletRes.error?.message
+    if (firstErr) {
+      setError(firstErr)
       return
     }
     setPlans(planRes.data ?? [])
     setFeatures(featureRes.data ?? [])
     setPlanFeatures(planFeatureRes.data ?? [])
+    setBullets(bulletRes.data ?? [])
   }, [])
 
   useEffect(() => {
@@ -66,13 +65,26 @@ export function PlatformBillingPlansPage() {
 
   const planFeatureByKey = useMemo(() => {
     const map = new Map<string, PlanFeature>()
-    for (const row of planFeatures) {
-      map.set(`${row.plan_id}:${row.feature_id}`, row)
-    }
+    for (const row of planFeatures) map.set(`${row.plan_id}:${row.feature_id}`, row)
     return map
   }, [planFeatures])
 
-  const activePlans = useMemo(() => plans.filter((plan) => plan.active), [plans])
+  const bulletsByPlan = useMemo(() => {
+    const map = new Map<string, Bullet[]>()
+    for (const b of bullets) {
+      const list = map.get(b.plan_id) ?? []
+      list.push(b)
+      map.set(b.plan_id, list)
+    }
+    for (const list of map.values()) list.sort((a, b) => a.sort_order - b.sort_order)
+    return map
+  }, [bullets])
+
+  const featureById = useMemo(() => {
+    const map = new Map<string, Feature>()
+    for (const f of features) map.set(f.id, f)
+    return map
+  }, [features])
 
   if (platformRole !== 'superadmin') {
     return (
@@ -82,133 +94,169 @@ export function PlatformBillingPlansPage() {
     )
   }
 
-  async function createPlan() {
-    const name = newPlan.name.trim()
-    const slug = (newPlan.slug.trim() || slugify(name)).trim()
-    if (!name || !slug) return
-    setSaving(true)
-    setError(null)
-    const monthlyPriceCents = Math.max(
-      0,
-      Math.round((Number(newPlan.monthlyPriceKr.replace(',', '.')) || 0) * 100),
-    )
-    const { error: insertErr } = await supabase.from('billing_plans').insert({
-      name,
-      slug,
-      description: newPlan.description.trim() || null,
-      monthly_price_cents: monthlyPriceCents,
-      stripe_price_id: newPlan.stripePriceId.trim() || null,
-      active: true,
-      sort_order: (plans.at(-1)?.sort_order ?? 0) + 10,
-    })
-    setSaving(false)
-    if (insertErr) {
-      setError(insertErr.message)
-      return
-    }
-    setNewPlan(emptyPlan)
-    await load()
-  }
-
-  async function createFeature() {
-    const name = newFeatureName.trim()
-    const key = (newFeatureKey.trim() || slugify(name).replace(/-/g, '_')).trim()
-    if (!name || !key) return
-    setSaving(true)
-    setError(null)
-    const { error: insertErr } = await supabase.from('billing_features').insert({
-      name,
-      key,
-      active: true,
-      sort_order: (features.at(-1)?.sort_order ?? 0) + 10,
-    })
-    setSaving(false)
-    if (insertErr) {
-      setError(insertErr.message)
-      return
-    }
-    setNewFeatureName('')
-    setNewFeatureKey('')
-    await load()
-  }
+  // ---------- plan ops ----------
 
   async function updatePlan(plan: Plan, patch: Database['public']['Tables']['billing_plans']['Update']) {
     setError(null)
-    const { error: updateErr } = await supabase
+    const { error: err } = await supabase
       .from('billing_plans')
-      .update({ ...patch, updated_at: new Date().toISOString() })
+      .update({ ...patch, updated_at: nowIso() })
       .eq('id', plan.id)
-    if (updateErr) {
-      setError(updateErr.message)
+    if (err) {
+      setError(err.message)
       return
     }
     setPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, ...patch } : p)))
   }
 
+  async function createPlan() {
+    setError(null)
+    const baseName = `Plan ${plans.length + 1}`
+    const baseSlug = slugify(`${baseName}-${Date.now().toString(36)}`)
+    const { data, error: err } = await supabase
+      .from('billing_plans')
+      .insert({
+        name: baseName,
+        slug: baseSlug,
+        active: true,
+        sort_order: (plans.at(-1)?.sort_order ?? 0) + 10,
+      })
+      .select('*')
+      .single()
+    if (err || !data) {
+      setError(err?.message ?? 'Kunne ikke oprette plan')
+      return
+    }
+    setPlans((prev) => [...prev, data])
+  }
+
+  async function deletePlan(plan: Plan) {
+    if (!window.confirm(`Slet planen «${plan.name}»? Bullets fjernes også.`)) return
+    setError(null)
+    const { error: err } = await supabase.from('billing_plans').delete().eq('id', plan.id)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    setPlans((prev) => prev.filter((p) => p.id !== plan.id))
+    setBullets((prev) => prev.filter((b) => b.plan_id !== plan.id))
+    setPlanFeatures((prev) => prev.filter((pf) => pf.plan_id !== plan.id))
+  }
+
   async function movePlan(index: number, direction: -1 | 1) {
-    const targetIndex = index + direction
-    if (targetIndex < 0 || targetIndex >= plans.length) return
+    const target = index + direction
+    if (target < 0 || target >= plans.length) return
     const next = [...plans]
     const [item] = next.splice(index, 1)
-    next.splice(targetIndex, 0, item)
-    const reordered = next.map((plan, i) => ({ ...plan, sort_order: (i + 1) * 10 }))
+    next.splice(target, 0, item)
+    const reordered = next.map((p, i) => ({ ...p, sort_order: (i + 1) * 10 }))
     setPlans(reordered)
     setError(null)
     const updates = await Promise.all(
-      reordered.map((plan) =>
+      reordered.map((p) =>
         supabase
           .from('billing_plans')
-          .update({ sort_order: plan.sort_order, updated_at: new Date().toISOString() })
-          .eq('id', plan.id),
+          .update({ sort_order: p.sort_order, updated_at: nowIso() })
+          .eq('id', p.id),
       ),
     )
-    const updateErr = updates.find((res) => res.error)?.error
-    if (updateErr) {
-      setError(updateErr.message)
+    const err = updates.find((r) => r.error)?.error
+    if (err) {
+      setError(err.message)
       await load()
     }
   }
 
-  async function updateFeature(feature: Feature, patch: Database['public']['Tables']['billing_features']['Update']) {
+  // ---------- bullet ops ----------
+
+  async function addBullet(plan: Plan, kind: BulletKind, opts?: { feature?: Feature }) {
     setError(null)
-    const { error: updateErr } = await supabase
-      .from('billing_features')
-      .update({ ...patch, updated_at: new Date().toISOString() })
-      .eq('id', feature.id)
-    if (updateErr) {
-      setError(updateErr.message)
+    const list = bulletsByPlan.get(plan.id) ?? []
+    const sortOrder = (list.at(-1)?.sort_order ?? 0) + 10
+    const title =
+      opts?.feature?.name ??
+      (kind === 'heading' ? 'Overskrift' : kind === 'text' ? 'Nyt punkt' : 'Funktion')
+    const subtitle = opts?.feature?.description ?? null
+    const featureId = opts?.feature?.id ?? null
+    const { data, error: err } = await supabase
+      .from('billing_plan_bullets')
+      .insert({
+        plan_id: plan.id,
+        kind,
+        feature_id: featureId,
+        title,
+        subtitle,
+        sort_order: sortOrder,
+      })
+      .select('*')
+      .single()
+    if (err || !data) {
+      setError(err?.message ?? 'Kunne ikke tilføje punkt')
       return
     }
-    setFeatures((prev) => prev.map((f) => (f.id === feature.id ? { ...f, ...patch } : f)))
+    setBullets((prev) => [...prev, data])
+    if (kind === 'feature' && opts?.feature) {
+      // Sørg for at feature også er enabled på planen
+      await setEntitlement(plan, opts.feature, true, null)
+    }
   }
 
-  async function moveFeature(index: number, direction: -1 | 1) {
-    const targetIndex = index + direction
-    if (targetIndex < 0 || targetIndex >= features.length) return
-    const next = [...features]
+  async function updateBullet(bullet: Bullet, patch: Database['public']['Tables']['billing_plan_bullets']['Update']) {
+    setError(null)
+    const { error: err } = await supabase
+      .from('billing_plan_bullets')
+      .update({ ...patch, updated_at: nowIso() })
+      .eq('id', bullet.id)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    setBullets((prev) => prev.map((b) => (b.id === bullet.id ? { ...b, ...patch } : b)))
+  }
+
+  async function deleteBullet(bullet: Bullet) {
+    setError(null)
+    const { error: err } = await supabase.from('billing_plan_bullets').delete().eq('id', bullet.id)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    setBullets((prev) => prev.filter((b) => b.id !== bullet.id))
+  }
+
+  async function moveBullet(plan: Plan, index: number, direction: -1 | 1) {
+    const list = bulletsByPlan.get(plan.id) ?? []
+    const target = index + direction
+    if (target < 0 || target >= list.length) return
+    const next = [...list]
     const [item] = next.splice(index, 1)
-    next.splice(targetIndex, 0, item)
-    const reordered = next.map((feature, i) => ({ ...feature, sort_order: (i + 1) * 10 }))
-    setFeatures(reordered)
+    next.splice(target, 0, item)
+    const reordered = next.map((b, i) => ({ ...b, sort_order: (i + 1) * 10 }))
+    setBullets((prev) => {
+      const others = prev.filter((b) => b.plan_id !== plan.id)
+      return [...others, ...reordered]
+    })
     setError(null)
     const updates = await Promise.all(
-      reordered.map((feature) =>
+      reordered.map((b) =>
         supabase
-          .from('billing_features')
-          .update({ sort_order: feature.sort_order, updated_at: new Date().toISOString() })
-          .eq('id', feature.id),
+          .from('billing_plan_bullets')
+          .update({ sort_order: b.sort_order, updated_at: nowIso() })
+          .eq('id', b.id),
       ),
     )
-    const updateErr = updates.find((res) => res.error)?.error
-    if (updateErr) {
-      setError(updateErr.message)
+    const err = updates.find((r) => r.error)?.error
+    if (err) {
+      setError(err.message)
       await load()
     }
   }
 
-  async function setPlanFeature(plan: Plan, feature: Feature, enabled: boolean, limitValue: number | null) {
+  // ---------- entitlement ops ----------
+
+  async function setEntitlement(plan: Plan, feature: Feature, enabled: boolean, limitValue: number | null) {
     setError(null)
-    const { data, error: upsertErr } = await supabase
+    const { data, error: err } = await supabase
       .from('billing_plan_features')
       .upsert(
         {
@@ -216,29 +264,76 @@ export function PlatformBillingPlansPage() {
           feature_id: feature.id,
           enabled,
           limit_value: limitValue,
-          updated_at: new Date().toISOString(),
+          updated_at: nowIso(),
         },
         { onConflict: 'plan_id,feature_id' },
       )
       .select('*')
       .single()
-    if (upsertErr || !data) {
-      setError(upsertErr?.message ?? 'Kunne ikke gemme feature')
+    if (err || !data) {
+      setError(err?.message ?? 'Kunne ikke gemme adgang')
       return
     }
     setPlanFeatures((prev) => {
-      const rest = prev.filter((row) => !(row.plan_id === plan.id && row.feature_id === feature.id))
+      const rest = prev.filter((r) => !(r.plan_id === plan.id && r.feature_id === feature.id))
       return [...rest, data]
     })
   }
 
+  // ---------- feature registry ops ----------
+
+  async function createFeature(name: string) {
+    if (!name.trim()) return
+    setError(null)
+    const key = slugify(name).replace(/-/g, '_')
+    const { data, error: err } = await supabase
+      .from('billing_features')
+      .insert({
+        name: name.trim(),
+        key,
+        active: true,
+        sort_order: (features.at(-1)?.sort_order ?? 0) + 10,
+      })
+      .select('*')
+      .single()
+    if (err || !data) {
+      setError(err?.message ?? 'Kunne ikke oprette feature')
+      return
+    }
+    setFeatures((prev) => [...prev, data])
+  }
+
+  async function updateFeatureMeta(feature: Feature, patch: Database['public']['Tables']['billing_features']['Update']) {
+    setError(null)
+    const { error: err } = await supabase
+      .from('billing_features')
+      .update({ ...patch, updated_at: nowIso() })
+      .eq('id', feature.id)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    setFeatures((prev) => prev.map((f) => (f.id === feature.id ? { ...f, ...patch } : f)))
+  }
+
+  // ---------- render ----------
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Planer og features</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Opret planer, tilknyt Stripe Price ID og vælg hvilke features hver plan indeholder.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Planer og features</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Rediger planerne præcis som de vises på pricing-siden — bullets, priser og adgang pr. plan.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void createPlan()}
+          className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+        >
+          + Ny plan
+        </button>
       </div>
 
       {error ? (
@@ -247,332 +342,436 @@ export function PlatformBillingPlansPage() {
         </p>
       ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(24rem,0.8fr)]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Planer og priser</h2>
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="py-2 pr-3">Rækkefølge</th>
-                  <th className="py-2 pr-3">Plan</th>
-                  <th className="py-2 pr-3">Før pris (kr./md.)</th>
-                  <th className="py-2 pr-3">Pris nu (kr./md.)</th>
-                  <th className="py-2 pr-3">Stripe Price ID</th>
-                  <th className="py-2 pr-3">Aktiv</th>
-                </tr>
-              </thead>
-              <tbody>
-                {plans.map((plan, index) => (
-                  <tr key={plan.id} className="border-t border-slate-100">
-                    <td className="py-3 pr-3">
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          disabled={index === 0}
-                          onClick={() => void movePlan(index, -1)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
-                          aria-label={`Flyt ${plan.name} op`}
-                          title="Flyt op"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          disabled={index === plans.length - 1}
-                          onClick={() => void movePlan(index, 1)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
-                          aria-label={`Flyt ${plan.name} ned`}
-                          title="Flyt ned"
-                        >
-                          ↓
-                        </button>
-                      </div>
-                    </td>
-                    <td className="py-3 pr-3">
-                      <div className="font-medium text-slate-900">{plan.name}</div>
-                      <div className="font-mono text-xs text-slate-500">{plan.slug}</div>
-                    </td>
-                    <td className="py-3 pr-3">
-                      <input
-                        value={plan.compare_price_cents == null ? '' : String(Math.round(plan.compare_price_cents / 100))}
-                        onChange={(e) => {
-                          const raw = e.target.value
-                          const cents = raw === '' ? null : Math.max(0, Math.round((Number(raw.replace(',', '.')) || 0) * 100))
-                          setPlans((prev) =>
-                            prev.map((p) => (p.id === plan.id ? { ...p, compare_price_cents: cents } : p)),
-                          )
-                        }}
-                        onBlur={(e) => {
-                          const raw = e.target.value.trim()
-                          const cents = raw === '' ? null : Math.max(0, Math.round((Number(raw.replace(',', '.')) || 0) * 100))
-                          void updatePlan(plan, { compare_price_cents: cents })
-                        }}
-                        placeholder="–"
-                        inputMode="decimal"
-                        className="w-24 rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                      />
-                    </td>
-                    <td className="py-3 pr-3">
-                      <input
-                        value={String(Math.round(plan.monthly_price_cents / 100))}
-                        onChange={(e) => {
-                          const cents = Math.max(0, Math.round((Number(e.target.value.replace(',', '.')) || 0) * 100))
-                          setPlans((prev) =>
-                            prev.map((p) => (p.id === plan.id ? { ...p, monthly_price_cents: cents } : p)),
-                          )
-                        }}
-                        onBlur={(e) => {
-                          const cents = Math.max(0, Math.round((Number(e.target.value.replace(',', '.')) || 0) * 100))
-                          void updatePlan(plan, { monthly_price_cents: cents })
-                        }}
-                        inputMode="decimal"
-                        className="w-24 rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                      />
-                    </td>
-                    <td className="py-3 pr-3">
-                      <input
-                        value={plan.stripe_price_id ?? ''}
-                        onChange={(e) => {
-                          const value = e.target.value
-                          setPlans((prev) =>
-                            prev.map((p) => (p.id === plan.id ? { ...p, stripe_price_id: value || null } : p)),
-                          )
-                        }}
-                        onBlur={(e) => void updatePlan(plan, { stripe_price_id: e.target.value.trim() || null })}
-                        placeholder="price_..."
-                        className="w-56 rounded-lg border border-slate-200 px-2 py-1.5 font-mono text-xs"
-                      />
-                    </td>
-                    <td className="py-3 pr-3">
-                      <input
-                        type="checkbox"
-                        checked={plan.active}
-                        onChange={(e) => void updatePlan(plan, { active: e.target.checked })}
-                        className="h-4 w-4 rounded border-slate-300 text-indigo-600"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Ny plan</h2>
-          <div className="mt-4 space-y-3">
-            <input
-              value={newPlan.name}
-              onChange={(e) =>
-                setNewPlan((p) => ({
-                  ...p,
-                  name: e.target.value,
-                  slug: p.slug || slugify(e.target.value),
-                }))
+      <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+        {plans.map((plan, index) => {
+          const planBullets = bulletsByPlan.get(plan.id) ?? []
+          const usedFeatureIds = new Set(
+            planBullets.filter((b) => b.kind === 'feature' && b.feature_id).map((b) => b.feature_id as string),
+          )
+          const availableFeatures = features.filter((f) => !usedFeatureIds.has(f.id))
+          const entitlementsOpen = openEntitlementsFor === plan.id
+          return (
+            <div
+              key={plan.id}
+              className={
+                'flex flex-col rounded-2xl border bg-white p-5 shadow-sm ' +
+                (plan.marketing_hidden ? 'border-slate-200 opacity-75' : 'border-indigo-100')
               }
-              placeholder="Pro"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            />
-            <input
-              value={newPlan.slug}
-              onChange={(e) => setNewPlan((p) => ({ ...p, slug: slugify(e.target.value) }))}
-              placeholder="pro"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-sm"
-            />
-            <input
-              value={newPlan.monthlyPriceKr}
-              onChange={(e) => setNewPlan((p) => ({ ...p, monthlyPriceKr: e.target.value }))}
-              placeholder="99"
-              inputMode="decimal"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            />
-            <input
-              value={newPlan.stripePriceId}
-              onChange={(e) => setNewPlan((p) => ({ ...p, stripePriceId: e.target.value }))}
-              placeholder="price_..."
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-sm"
-            />
-            <textarea
-              value={newPlan.description}
-              onChange={(e) => setNewPlan((p) => ({ ...p, description: e.target.value }))}
-              placeholder="Kort beskrivelse"
-              className="min-h-20 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            />
-            <button
-              type="button"
-              disabled={saving || !newPlan.name.trim()}
-              onClick={() => void createPlan()}
-              className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
             >
-              Opret plan
-            </button>
-          </div>
-        </div>
-      </section>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    disabled={index === 0}
+                    onClick={() => void movePlan(index, -1)}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-35"
+                    title="Flyt op"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    disabled={index === plans.length - 1}
+                    onClick={() => void movePlan(index, 1)}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-35"
+                    title="Flyt ned"
+                  >
+                    ↓
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void updatePlan(plan, { marketing_hidden: !plan.marketing_hidden })}
+                    className={
+                      'inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium ' +
+                      (plan.marketing_hidden
+                        ? 'border-slate-300 bg-slate-100 text-slate-600'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-800')
+                    }
+                    title={plan.marketing_hidden ? 'Skjult — klik for at vise på pricing-siden' : 'Synlig — klik for at skjule'}
+                  >
+                    {plan.marketing_hidden ? 'Skjult' : 'Synlig'}
+                  </button>
+                  <label className="inline-flex items-center gap-1 text-xs text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={plan.active}
+                      onChange={(e) => void updatePlan(plan, { active: e.target.checked })}
+                      className="h-4 w-4 rounded border-slate-300 text-indigo-600"
+                    />
+                    Aktiv
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void deletePlan(plan)}
+                    className="text-xs font-medium text-rose-600 hover:text-rose-800"
+                    title="Slet plan"
+                  >
+                    Slet
+                  </button>
+                </div>
+              </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Features pr. plan</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Slå funktioner til/fra og sæt eventuelle limits. Tomt limit betyder ubegrænset eller ikke relevant.
-            </p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_auto]">
-            <input
-              value={newFeatureName}
-              onChange={(e) => {
-                setNewFeatureName(e.target.value)
-                if (!newFeatureKey) setNewFeatureKey(slugify(e.target.value).replace(/-/g, '_'))
-              }}
-              placeholder="Ny feature"
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            />
-            <input
-              value={newFeatureKey}
-              onChange={(e) => setNewFeatureKey(e.target.value.trim().toLowerCase())}
-              placeholder="feature_key"
-              className="rounded-xl border border-slate-200 px-3 py-2 font-mono text-sm"
-            />
-            <button
-              type="button"
-              disabled={saving || !newFeatureName.trim()}
-              onClick={() => void createFeature()}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-50"
-            >
-              Opret feature
-            </button>
-          </div>
-        </div>
+              <input
+                value={plan.name}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, name: value } : p)))
+                }}
+                onBlur={(e) => {
+                  const value = e.target.value.trim()
+                  if (!value) return
+                  void updatePlan(plan, { name: value })
+                }}
+                placeholder="Plannavn"
+                className="mt-3 w-full rounded-lg border border-transparent px-2 py-1 text-2xl font-bold tracking-tight text-slate-900 hover:border-slate-200 focus:border-slate-300 focus:outline-none"
+              />
+              <input
+                value={plan.slug}
+                onChange={(e) => {
+                  const value = slugify(e.target.value)
+                  setPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, slug: value } : p)))
+                }}
+                onBlur={(e) => {
+                  const value = slugify(e.target.value)
+                  if (!value) return
+                  void updatePlan(plan, { slug: value })
+                }}
+                placeholder="slug"
+                className="mt-1 w-full rounded-lg border border-transparent px-2 py-0.5 font-mono text-xs text-slate-500 hover:border-slate-200 focus:border-slate-300 focus:outline-none"
+              />
+              <textarea
+                value={plan.description ?? ''}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, description: value } : p)))
+                }}
+                onBlur={(e) => void updatePlan(plan, { description: e.target.value.trim() || null })}
+                placeholder="Kort beskrivelse"
+                className="mt-2 min-h-12 w-full rounded-lg border border-transparent px-2 py-1 text-sm text-slate-600 hover:border-slate-200 focus:border-slate-300 focus:outline-none"
+              />
 
-        <div className="mt-5 overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500">
-              <tr>
-                <th className="sticky left-0 bg-white py-2 pr-4">Feature</th>
-                {activePlans.map((plan) => (
-                  <th key={plan.id} className="min-w-52 py-2 pr-4">
-                    {plan.name}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {features.map((feature, featureIndex) => (
-                <tr key={feature.id} className="border-t border-slate-100">
-                  <td className="sticky left-0 bg-white py-3 pr-4">
-                    <div className="flex items-start gap-2">
-                      <div className="flex shrink-0 gap-1">
-                        <button
-                          type="button"
-                          disabled={featureIndex === 0}
-                          onClick={() => void moveFeature(featureIndex, -1)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
-                          aria-label={`Flyt ${feature.name} op`}
-                          title="Flyt op"
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  Før pris (kr./md.)
+                  <input
+                    value={plan.compare_price_cents == null ? '' : String(Math.round(plan.compare_price_cents / 100))}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      const cents = raw === '' ? null : priceToCents(raw)
+                      setPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, compare_price_cents: cents } : p)))
+                    }}
+                    onBlur={(e) => {
+                      const raw = e.target.value.trim()
+                      const cents = raw === '' ? null : priceToCents(raw)
+                      void updatePlan(plan, { compare_price_cents: cents })
+                    }}
+                    placeholder="–"
+                    inputMode="decimal"
+                    className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-medium text-slate-700"
+                  />
+                </label>
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  Pris nu (kr./md.)
+                  <input
+                    value={String(Math.round(plan.monthly_price_cents / 100))}
+                    onChange={(e) => {
+                      const cents = priceToCents(e.target.value)
+                      setPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, monthly_price_cents: cents } : p)))
+                    }}
+                    onBlur={(e) => void updatePlan(plan, { monthly_price_cents: priceToCents(e.target.value) })}
+                    inputMode="decimal"
+                    className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-bold text-indigo-600"
+                  />
+                </label>
+              </div>
+              <label className="mt-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Stripe Price ID
+                <input
+                  value={plan.stripe_price_id ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, stripe_price_id: value || null } : p)))
+                  }}
+                  onBlur={(e) => void updatePlan(plan, { stripe_price_id: e.target.value.trim() || null })}
+                  placeholder="price_..."
+                  className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 font-mono text-xs"
+                />
+              </label>
+
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  Punkter på pricing-kortet
+                </div>
+                <ul className="mt-2 space-y-2">
+                  {planBullets.map((b, i) => (
+                    <li
+                      key={b.id}
+                      className={
+                        'rounded-lg border px-2 py-2 ' +
+                        (b.kind === 'heading' ? 'border-slate-100 bg-slate-50' : 'border-slate-200 bg-white')
+                      }
+                    >
+                      <div className="flex items-start gap-1">
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            type="button"
+                            disabled={i === 0}
+                            onClick={() => void moveBullet(plan, i, -1)}
+                            className="inline-flex h-5 w-5 items-center justify-center rounded text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                            title="Flyt op"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            disabled={i === planBullets.length - 1}
+                            onClick={() => void moveBullet(plan, i, 1)}
+                            className="inline-flex h-5 w-5 items-center justify-center rounded text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                            title="Flyt ned"
+                          >
+                            ↓
+                          </button>
+                        </div>
+                        <span
+                          className="mt-0.5 inline-flex h-5 w-12 shrink-0 items-center justify-center rounded text-[10px] font-semibold uppercase tracking-wide"
+                          style={{
+                            background:
+                              b.kind === 'feature'
+                                ? '#ecfdf5'
+                                : b.kind === 'heading'
+                                  ? '#eef2ff'
+                                  : '#fef3c7',
+                            color:
+                              b.kind === 'feature'
+                                ? '#047857'
+                                : b.kind === 'heading'
+                                  ? '#3730a3'
+                                  : '#92400e',
+                          }}
                         >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          disabled={featureIndex === features.length - 1}
-                          onClick={() => void moveFeature(featureIndex, 1)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
-                          aria-label={`Flyt ${feature.name} ned`}
-                          title="Flyt ned"
-                        >
-                          ↓
-                        </button>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <input
-                          value={feature.name}
-                          onChange={(e) => {
-                            const value = e.target.value
-                            setFeatures((prev) =>
-                              prev.map((f) => (f.id === feature.id ? { ...f, name: value } : f)),
-                            )
-                          }}
-                          onBlur={(e) => {
-                            const value = e.target.value.trim()
-                            if (!value) return
-                            void updateFeature(feature, { name: value })
-                          }}
-                          placeholder="Feature-navn"
-                          className="w-full rounded-lg border border-transparent px-2 py-1 font-medium text-slate-900 hover:border-slate-200 focus:border-slate-300 focus:outline-none"
-                        />
-                        <div className="px-2 font-mono text-xs text-slate-500">{feature.key}</div>
-                        <input
-                          value={feature.description ?? ''}
-                          onChange={(e) => {
-                            const value = e.target.value
-                            setFeatures((prev) =>
-                              prev.map((f) => (f.id === feature.id ? { ...f, description: value } : f)),
-                            )
-                          }}
-                          onBlur={(e) =>
-                            void updateFeature(feature, { description: e.target.value.trim() || null })
-                          }
-                          placeholder="Undertekst (vises under navn på pricing-siden)"
-                          className="mt-1.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                        />
-                      </div>
-                    </div>
-                  </td>
-                  {activePlans.map((plan) => {
-                    const row = planFeatureByKey.get(`${plan.id}:${feature.id}`)
-                    return (
-                      <td key={plan.id} className="py-3 pr-4 align-top">
-                        <div className="flex items-center gap-2">
-                          <label className="inline-flex items-center gap-2 text-xs text-slate-700">
+                          {b.kind === 'feature' ? '✓ Feat' : b.kind === 'heading' ? 'H1' : 'Tekst'}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <input
+                            value={b.title}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              setBullets((prev) => prev.map((x) => (x.id === b.id ? { ...x, title: value } : x)))
+                            }}
+                            onBlur={(e) => {
+                              const value = e.target.value.trim()
+                              if (!value) return
+                              void updateBullet(b, { title: value })
+                            }}
+                            className="w-full rounded border border-transparent px-1 py-0.5 text-sm font-medium text-slate-900 hover:border-slate-200 focus:border-slate-300 focus:outline-none"
+                          />
+                          {b.kind !== 'heading' ? (
                             <input
-                              type="checkbox"
-                              checked={row?.enabled ?? false}
-                              onChange={(e) =>
-                                void setPlanFeature(plan, feature, e.target.checked, row?.limit_value ?? null)
+                              value={b.subtitle ?? ''}
+                              onChange={(e) => {
+                                const value = e.target.value
+                                setBullets((prev) =>
+                                  prev.map((x) => (x.id === b.id ? { ...x, subtitle: value } : x)),
+                                )
+                              }}
+                              onBlur={(e) =>
+                                void updateBullet(b, { subtitle: e.target.value.trim() || null })
                               }
-                              className="h-4 w-4 rounded border-slate-300 text-indigo-600"
+                              placeholder="Undertekst (valgfri)"
+                              className="mt-0.5 w-full rounded border border-transparent px-1 py-0.5 text-xs text-slate-500 hover:border-slate-200 focus:border-slate-300 focus:outline-none"
                             />
-                            Aktiv
-                          </label>
+                          ) : null}
+                          {b.kind === 'feature' && b.feature_id ? (
+                            <div className="mt-0.5 px-1 font-mono text-[10px] text-emerald-700">
+                              ↳ {featureById.get(b.feature_id)?.key ?? '?'}
+                            </div>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void deleteBullet(b)}
+                          className="text-slate-400 hover:text-rose-600"
+                          title="Slet punkt"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void addBullet(plan, 'text')}
+                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    + Tekst
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void addBullet(plan, 'heading')}
+                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    + Overskrift
+                  </button>
+                  {availableFeatures.length > 0 ? (
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const f = features.find((x) => x.id === e.target.value)
+                        if (f) void addBullet(plan, 'feature', { feature: f })
+                      }}
+                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      <option value="">+ Tilføj feature…</option>
+                      {availableFeatures.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-4 border-t border-slate-100 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setOpenEntitlementsFor(entitlementsOpen ? null : plan.id)}
+                  className="flex w-full items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-700"
+                >
+                  <span>Aktive funktioner (adgang i appen)</span>
+                  <span>{entitlementsOpen ? '▾' : '▸'}</span>
+                </button>
+                {entitlementsOpen ? (
+                  <ul className="mt-2 space-y-1">
+                    {features.map((f) => {
+                      const row = planFeatureByKey.get(`${plan.id}:${f.id}`)
+                      const enabled = row?.enabled ?? false
+                      return (
+                        <li key={f.id} className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            onChange={(e) => void setEntitlement(plan, f, e.target.checked, row?.limit_value ?? null)}
+                            className="h-4 w-4 rounded border-slate-300 text-indigo-600"
+                          />
+                          <span className="flex-1 text-slate-700">{f.name}</span>
                           <input
                             value={row?.limit_value ?? ''}
                             onChange={(e) => {
                               const value = e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0)
                               setPlanFeatures((prev) => {
-                                const rest = prev.filter((r) => !(r.plan_id === plan.id && r.feature_id === feature.id))
+                                const rest = prev.filter(
+                                  (r) => !(r.plan_id === plan.id && r.feature_id === f.id),
+                                )
                                 return [
                                   ...rest,
                                   {
                                     plan_id: plan.id,
-                                    feature_id: feature.id,
-                                    enabled: row?.enabled ?? false,
+                                    feature_id: f.id,
+                                    enabled,
                                     limit_value: value,
-                                    created_at: row?.created_at ?? new Date().toISOString(),
-                                    updated_at: new Date().toISOString(),
-                                  },
+                                    created_at: row?.created_at ?? nowIso(),
+                                    updated_at: nowIso(),
+                                  } satisfies PlanFeature,
                                 ]
                               })
                             }}
                             onBlur={(e) => {
                               const value = e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0)
-                              void setPlanFeature(plan, feature, row?.enabled ?? false, value)
+                              void setEntitlement(plan, f, enabled, value)
                             }}
                             placeholder="Limit"
                             inputMode="numeric"
-                            className="w-20 rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                            className="w-16 rounded border border-slate-200 px-1.5 py-0.5 text-xs"
                           />
-                        </div>
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                ) : null}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <FeaturesRegistry
+        features={features}
+        onCreate={(name) => void createFeature(name)}
+        onUpdate={(f, patch) => void updateFeatureMeta(f, patch)}
+      />
     </div>
+  )
+}
+
+function FeaturesRegistry({
+  features,
+  onCreate,
+  onUpdate,
+}: {
+  features: Feature[]
+  onCreate: (name: string) => void
+  onUpdate: (feature: Feature, patch: Database['public']['Tables']['billing_features']['Update']) => void
+}) {
+  const [newName, setNewName] = useState('')
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">Feature-bibliotek</h2>
+          <p className="mt-0.5 text-xs text-slate-600">
+            Globale features der kan tilknyttes flere planer. Bruges af appen til at gate adgang.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Ny feature"
+            className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              if (!newName.trim()) return
+              onCreate(newName)
+              setNewName('')
+            }}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-slate-50"
+          >
+            Opret
+          </button>
+        </div>
+      </div>
+      <ul className="mt-4 divide-y divide-slate-100 text-sm">
+        {features.map((f) => (
+          <li key={f.id} className="flex items-center gap-2 py-2">
+            <input
+              value={f.name}
+              onChange={(e) => onUpdate(f, { name: e.target.value })}
+              onBlur={(e) => {
+                const value = e.target.value.trim()
+                if (!value) return
+                onUpdate(f, { name: value })
+              }}
+              className="flex-1 rounded border border-transparent px-1 py-0.5 font-medium text-slate-900 hover:border-slate-200 focus:border-slate-300 focus:outline-none"
+            />
+            <span className="font-mono text-[10px] text-slate-400">{f.key}</span>
+            <input
+              value={f.description ?? ''}
+              onChange={(e) => onUpdate(f, { description: e.target.value })}
+              onBlur={(e) => onUpdate(f, { description: e.target.value.trim() || null })}
+              placeholder="Standard undertekst"
+              className="w-64 rounded border border-slate-200 px-2 py-1 text-xs"
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
