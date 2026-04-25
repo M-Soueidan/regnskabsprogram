@@ -12,6 +12,7 @@ import { FeaturesPage } from '@/pages/FeaturesPage'
 import { FeatureDetailPage } from '@/pages/FeatureDetailPage'
 import { PricingPage } from '@/pages/PricingPage'
 import { FaqPage } from '@/pages/FaqPage'
+import { ExpenseUploadPage } from '@/pages/ExpenseUploadPage'
 import {
   CookiepolitikPage,
   DatabehandleraftalePage,
@@ -107,6 +108,7 @@ export default function App() {
           <Route path="/funktioner/:slug" element={<FeatureDetailPage />} />
           <Route path="/priser" element={<PricingPage />} />
           <Route path="/faq" element={<FaqPage />} />
+          <Route path="/udlæg/:token" element={<ExpenseUploadPage />} />
           <Route path="/handelsbetingelser" element={<HandelsbetingelserPage />} />
           <Route path="/privatlivspolitik" element={<PrivatlivspolitikPage />} />
           <Route path="/cookiepolitik" element={<CookiepolitikPage />} />

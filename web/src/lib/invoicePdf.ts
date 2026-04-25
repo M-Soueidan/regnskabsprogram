@@ -292,19 +292,19 @@ export function generateInvoicePdfBlob(
 
   const docExt = doc as unknown as { lastAutoTable?: { finalY: number } }
   const finalY = docExt.lastAutoTable?.finalY ?? y + 50
-  let ty = finalY + 8
+  let ty = Math.max(finalY + 8, pageH * 0.44)
 
-  doc.setFontSize(10)
+  doc.setFontSize(8.5)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(45, 45, 55)
   const vatTitle = dominantVatLabel(sorted)
   const labelX = rightX - 46
   doc.text('Subtotal', labelX, ty)
   doc.text(money(invoice.net_cents, invoice.currency), rightX, ty, { align: 'right' })
-  ty += 5.5
+  ty += 5
   doc.text(vatTitle, labelX, ty)
   doc.text(money(invoice.vat_cents, invoice.currency), rightX, ty, { align: 'right' })
-  ty += 5.5
+  ty += 5
   doc.setFont('helvetica', 'bold')
   doc.text(`Total ${invoice.currency}`, labelX, ty)
   doc.text(money(invoice.gross_cents, invoice.currency), rightX, ty, { align: 'right' })

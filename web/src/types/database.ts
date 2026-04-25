@@ -444,6 +444,81 @@ export interface Database {
           voucher_project_id?: string | null
         }
       }
+      expense_upload_links: {
+        Row: {
+          id: string
+          company_id: string
+          token_hash: string
+          mode: 'single_use' | 'time_window'
+          expires_at: string
+          max_uploads: number | null
+          used_count: number
+          revoked_at: string | null
+          note: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          token_hash: string
+          mode: 'single_use' | 'time_window'
+          expires_at: string
+          max_uploads?: number | null
+          used_count?: number
+          revoked_at?: string | null
+          note?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          mode?: 'single_use' | 'time_window'
+          expires_at?: string
+          max_uploads?: number | null
+          used_count?: number
+          revoked_at?: string | null
+          note?: string | null
+          updated_at?: string
+        }
+      }
+      voucher_reimbursements: {
+        Row: {
+          id: string
+          voucher_id: string
+          company_id: string
+          upload_link_id: string | null
+          requester_name: string
+          phone: string | null
+          bank_reg_number: string | null
+          bank_account_number: string | null
+          status: 'pending_approval' | 'ready_for_refund' | 'refunded' | 'rejected'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          voucher_id: string
+          company_id: string
+          upload_link_id?: string | null
+          requester_name: string
+          phone?: string | null
+          bank_reg_number?: string | null
+          bank_account_number?: string | null
+          status?: 'pending_approval' | 'ready_for_refund' | 'refunded' | 'rejected'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          requester_name?: string
+          phone?: string | null
+          bank_reg_number?: string | null
+          bank_account_number?: string | null
+          status?: 'pending_approval' | 'ready_for_refund' | 'refunded' | 'rejected'
+          updated_at?: string
+        }
+      }
       voucher_projects: {
         Row: {
           id: string

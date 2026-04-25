@@ -12,6 +12,7 @@ import { formatDateOnly, formatDkk } from '@/lib/format'
 import { formatParsedNotes, parseDanishReceiptText } from '@/lib/receiptParse'
 import { canAttemptVoucherOcr, ocrImageOrPdfFile } from '@/lib/voucherOcr'
 import { VOUCHER_CATEGORY_OPTIONS, inferVoucherCategory } from '@/lib/voucherCategories'
+import { expenseLinkUrl, randomExpenseLinkToken, sha256Hex } from '@/lib/expenseLinks'
 import {
   ButtonSpinner,
   useStripeCheckoutLauncher,
@@ -20,6 +21,9 @@ import type { CompanyRole, Database } from '@/types/database'
 
 type Voucher = Database['public']['Tables']['vouchers']['Row']
 type VoucherProject = Database['public']['Tables']['voucher_projects']['Row']
+type ExpenseLinkMode = Database['public']['Tables']['expense_upload_links']['Row']['mode']
+type Reimbursement = Database['public']['Tables']['voucher_reimbursements']['Row']
+type ReimbursementStatus = Reimbursement['status']
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -68,6 +72,13 @@ function canWriterDeleteVouchers(role: CompanyRole | null) {
   return role === 'owner' || role === 'manager' || role === 'bookkeeper'
 }
 
+const reimbursementStatusLabels: Record<ReimbursementStatus, string> = {
+  pending_approval: 'Afventer godkendelse',
+  ready_for_refund: 'Klar til refundering',
+  refunded: 'Refunderet',
+  rejected: 'Afvist',
+}
+
 function isVoucherProjectSchemaError(error: { message?: string; code?: string } | null) {
   const msg = error?.message?.toLowerCase() ?? ''
   return error?.code === 'PGRST205' || msg.includes('voucher_projects') || msg.includes('voucher_project_id')
@@ -80,6 +91,7 @@ export function VouchersPage() {
   const [desktopView, setDesktopView] = useDesktopListViewPreference(VOUCHERS_VIEW_KEY, 'list')
   const [rows, setRows] = useState<Voucher[]>([])
   const [projects, setProjects] = useState<VoucherProject[]>([])
+  const [reimbursements, setReimbursements] = useState<Reimbursement[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [projectFilter, setProjectFilter] = useState<'all' | 'none' | string>('all')
   const [newProjectName, setNewProjectName] = useState('')
@@ -99,6 +111,9 @@ export function VouchersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [assigningCategoryId, setAssigningCategoryId] = useState<string | null>(null)
   const [assigningVoucherId, setAssigningVoucherId] = useState<string | null>(null)
+  const [expenseLinkMode, setExpenseLinkMode] = useState<ExpenseLinkMode>('single_use')
+  const [creatingExpenseLink, setCreatingExpenseLink] = useState(false)
+  const [expenseLink, setExpenseLink] = useState<string | null>(null)
 
   const canDeleteVoucher = canWriterDeleteVouchers(currentRole)
   const featureGateKnown = billingEntitlements.length > 0
@@ -108,7 +123,7 @@ export function VouchersPage() {
     if (!currentCompany) return
     setLoading(true)
     setError(null)
-    const [voucherRes, projectRes] = await Promise.all([
+    const [voucherRes, projectRes, reimbursementRes] = await Promise.all([
       supabase
       .from('vouchers')
       .select('*')
@@ -120,11 +135,17 @@ export function VouchersPage() {
         .eq('company_id', currentCompany.id)
         .eq('active', true)
         .order('name', { ascending: true }),
+      supabase
+        .from('voucher_reimbursements')
+        .select('*')
+        .eq('company_id', currentCompany.id)
+        .order('created_at', { ascending: false }),
     ])
     if (voucherRes.error) {
       setError(voucherRes.error.message)
     }
     setRows(voucherRes.data ?? [])
+    setReimbursements(reimbursementRes.data ?? [])
     if (isVoucherProjectSchemaError(projectRes.error)) {
       setProjectFeatureUnavailable(true)
       setProjects([])
@@ -166,6 +187,10 @@ export function VouchersPage() {
   const projectById = useMemo(() => {
     return new Map(projects.map((p) => [p.id, p]))
   }, [projects])
+
+  const reimbursementByVoucherId = useMemo(() => {
+    return new Map(reimbursements.map((r) => [r.voucher_id, r]))
+  }, [reimbursements])
 
   const projectNameForVoucher = useCallback(function projectNameForVoucher(v: Voucher) {
     return v.voucher_project_id ? (projectById.get(v.voucher_project_id)?.name ?? '') : ''
@@ -371,6 +396,52 @@ export function VouchersPage() {
     setProjectFilter(data.id)
     setProjectCreateOpen(false)
     setNewProjectName('')
+  }
+
+  async function createExpenseUploadLink() {
+    if (!currentCompany || !user) return
+    setCreatingExpenseLink(true)
+    setError(null)
+    setExpenseLink(null)
+    try {
+      const token = randomExpenseLinkToken()
+      const { error: linkErr } = await supabase
+        .from('expense_upload_links')
+        .insert({
+          company_id: currentCompany.id,
+          token_hash: await sha256Hex(token),
+          mode: expenseLinkMode,
+          expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+          max_uploads: expenseLinkMode === 'single_use' ? 1 : null,
+          created_by: user.id,
+        })
+      if (linkErr) throw linkErr
+      setExpenseLink(expenseLinkUrl(token))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Kunne ikke oprette udlægslink.')
+    } finally {
+      setCreatingExpenseLink(false)
+    }
+  }
+
+  async function copyExpenseLink() {
+    if (!expenseLink) return
+    await navigator.clipboard?.writeText(expenseLink)
+  }
+
+  async function updateReimbursementStatus(reimbursement: Reimbursement, status: ReimbursementStatus) {
+    const previous = reimbursements
+    setReimbursements((prev) =>
+      prev.map((row) => (row.id === reimbursement.id ? { ...row, status } : row)),
+    )
+    const { error: statusErr } = await supabase
+      .from('voucher_reimbursements')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', reimbursement.id)
+    if (statusErr) {
+      setReimbursements(previous)
+      setError(statusErr.message)
+    }
   }
 
   async function updateVoucherProject(v: Voucher, projectId: string | null) {
@@ -598,6 +669,56 @@ export function VouchersPage() {
 
       {error ? <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p> : null}
 
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Udlægslink</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Send et sikkert link til en medarbejder eller hjælper, så de kan uploade bilag og betalingsoplysninger.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <select
+              value={expenseLinkMode}
+              onChange={(e) => setExpenseLinkMode(e.target.value as ExpenseLinkMode)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900"
+            >
+              <option value="single_use">1 upload</option>
+              <option value="time_window">Flere uploads i 1 time</option>
+            </select>
+            <button
+              type="button"
+              disabled={creatingExpenseLink}
+              onClick={() => void createExpenseUploadLink()}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-70"
+            >
+              {creatingExpenseLink ? 'Opretter…' : 'Opret link'}
+            </button>
+          </div>
+        </div>
+        {expenseLink ? (
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-900">
+              Link gyldigt i 1 time
+            </p>
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <input
+                readOnly
+                value={expenseLink}
+                className="min-w-0 flex-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-900"
+              />
+              <button
+                type="button"
+                onClick={() => void copyExpenseLink()}
+                className="rounded-xl border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
+              >
+                Kopiér
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
       <div className="flex flex-wrap items-end justify-between gap-3 border-t border-slate-200 pt-2">
         <h2 className="text-base font-semibold text-slate-900">Dine bilag</h2>
         <DesktopListCardsToggle mode={desktopView} onChange={setDesktopView} />
@@ -765,6 +886,7 @@ export function VouchersPage() {
             const dateStr = v.expense_date
               ? formatDateOnly(v.expense_date)
               : formatDateOnly(v.uploaded_at)
+            const reimbursement = reimbursementByVoucherId.get(v.id)
             return (
               <div
                 key={v.id}
@@ -789,6 +911,31 @@ export function VouchersPage() {
                   </span>
                 </div>
                 <p className="line-clamp-2 text-sm font-medium text-slate-800">{v.title ?? '—'}</p>
+                {reimbursement ? (
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-950">
+                    <div className="font-semibold">Udlæg: {reimbursement.requester_name}</div>
+                    <select
+                      value={reimbursement.status}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        void updateReimbursementStatus(reimbursement, e.target.value as ReimbursementStatus)
+                      }}
+                      className="mt-2 w-full rounded-lg border border-emerald-200 bg-white px-2 py-1.5 text-xs"
+                    >
+                      {Object.entries(reimbursementStatusLabels).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="mt-1 text-emerald-900/80">
+                      {reimbursement.bank_reg_number || reimbursement.bank_account_number
+                        ? `Reg. ${reimbursement.bank_reg_number ?? '—'} / Konto ${reimbursement.bank_account_number ?? '—'}`
+                        : 'Ingen konto angivet'}
+                    </div>
+                  </div>
+                ) : null}
                 <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 text-xs text-slate-600">
                   <label className="min-w-0 flex-1">
                     <span className="sr-only">Kategori</span>
@@ -884,6 +1031,7 @@ export function VouchersPage() {
                 direction={sortKey === 'project' ? sortDir : null}
                 onClick={() => onSortColumn('project')}
               />
+              <th className="px-4 py-3">Udlæg</th>
               <SortableTh
                 label="Beløb"
                 isActive={sortKey === 'gross'}
@@ -904,24 +1052,26 @@ export function VouchersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                   Indlæser…
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                   Ingen bilag endnu.
                 </td>
               </tr>
             ) : filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                   Ingen bilag matcher søgningen.
                 </td>
               </tr>
             ) : (
-              filteredRows.map((v) => (
+              filteredRows.map((v) => {
+                const reimbursement = reimbursementByVoucherId.get(v.id)
+                return (
                 <tr key={v.id} id={`voucher-row-${v.id}`} className="border-t border-slate-100">
                   <td className="px-4 py-3 text-slate-600">
                     {v.expense_date
@@ -959,6 +1109,33 @@ export function VouchersPage() {
                       ))}
                     </select>
                   </td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {reimbursement ? (
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium text-slate-900">
+                          {reimbursement.requester_name}
+                        </div>
+                        <select
+                          value={reimbursement.status}
+                          onChange={(e) =>
+                            void updateReimbursementStatus(
+                              reimbursement,
+                              e.target.value as ReimbursementStatus,
+                            )
+                          }
+                          className="w-full min-w-44 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs"
+                        >
+                          {Object.entries(reimbursementStatusLabels).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right text-slate-800">
                     {v.gross_cents ? formatDkk(v.gross_cents) : '—'}
                   </td>
@@ -987,7 +1164,8 @@ export function VouchersPage() {
                     </div>
                   </td>
                 </tr>
-              ))
+                )
+              })
             )}
           </tbody>
         </table>

@@ -86,6 +86,121 @@ export async function redirectToStripeCheckout(
   }
 }
 
+export async function changeStripePlan(
+  companyId: string,
+  billingPlanId: string,
+): Promise<{ message?: string }> {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const token = sessionData.session?.access_token
+  if (!token) throw new Error('Ikke logget ind')
+
+  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+  const res = await fetch(fnUrl('stripe-change-plan'), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      apikey: anon,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      company_id: companyId,
+      billing_plan_id: billingPlanId,
+    }),
+  })
+  const raw = await res.text()
+  let data = {} as { message?: string; error?: string }
+  if (raw) {
+    try {
+      data = JSON.parse(raw) as typeof data
+    } catch {
+      if (!res.ok) {
+        throw new Error(
+          `Planskift fejlede (HTTP ${res.status}): ${raw.slice(0, 400).trim()}`,
+        )
+      }
+      return {}
+    }
+  }
+  if (!res.ok) {
+    throw new Error(data.error ?? `Planskift fejlede (HTTP ${res.status})`)
+  }
+  return { message: data.message }
+}
+
+export type ExpenseUploadLinkInfo = {
+  company_name: string
+  mode: 'single_use' | 'time_window'
+  expires_at: string
+  remaining_uploads: number | null
+}
+
+export async function getExpenseUploadLinkInfo(token: string): Promise<ExpenseUploadLinkInfo> {
+  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+  const res = await fetch(fnUrl('expense-upload-link'), {
+    method: 'POST',
+    headers: {
+      apikey: anon,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ action: 'info', token }),
+  })
+  const data = (await res.json().catch(() => ({}))) as ExpenseUploadLinkInfo & { error?: string }
+  if (!res.ok) throw new Error(data.error ?? 'Linket kunne ikke indlæses.')
+  return data
+}
+
+export type ExpenseUploadPayload = {
+  token: string
+  fileName: string
+  mimeType: string
+  fileBase64: string
+  requesterName: string
+  phone?: string
+  bankRegNumber?: string
+  bankAccountNumber?: string
+  title?: string
+  category?: string | null
+  notes?: string | null
+  expenseDate?: string
+  grossCents?: number
+  netCents?: number
+  vatCents?: number
+  vatRate?: number
+}
+
+export async function submitExpenseUpload(payload: ExpenseUploadPayload): Promise<{ voucher_id?: string }> {
+  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+  const res = await fetch(fnUrl('expense-upload-link'), {
+    method: 'POST',
+    headers: {
+      apikey: anon,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      action: 'upload',
+      token: payload.token,
+      file_name: payload.fileName,
+      mime_type: payload.mimeType,
+      file_base64: payload.fileBase64,
+      requester_name: payload.requesterName,
+      phone: payload.phone,
+      bank_reg_number: payload.bankRegNumber,
+      bank_account_number: payload.bankAccountNumber,
+      title: payload.title,
+      category: payload.category,
+      notes: payload.notes,
+      expense_date: payload.expenseDate,
+      gross_cents: payload.grossCents,
+      net_cents: payload.netCents,
+      vat_cents: payload.vatCents,
+      vat_rate: payload.vatRate,
+    }),
+  })
+  const data = (await res.json().catch(() => ({}))) as { voucher_id?: string; error?: string }
+  if (!res.ok) throw new Error(data.error ?? 'Bilaget kunne ikke uploades.')
+  return { voucher_id: data.voucher_id }
+}
+
 export async function startAiiaOAuth(companyId: string) {
   const { data: sessionData } = await supabase.auth.getSession()
   const token = sessionData.session?.access_token
