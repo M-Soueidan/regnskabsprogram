@@ -5,6 +5,7 @@ import { fileToBase64 } from '@/lib/expenseLinks'
 import { formatParsedNotes, parseDanishReceiptText } from '@/lib/receiptParse'
 import { canAttemptVoucherOcr, ocrImageOrPdfFile } from '@/lib/voucherOcr'
 import { inferVoucherCategory } from '@/lib/voucherCategories'
+import { BrandLogo } from '@/components/BrandLogo'
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -134,7 +135,14 @@ export function ExpenseUploadPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900">
       <div className="mx-auto max-w-xl">
-        <Link to="/" className="text-sm font-semibold text-indigo-600">Bilago</Link>
+        <Link to="/" className="inline-flex">
+          <BrandLogo />
+        </Link>
+        {info?.company_name ? (
+          <p className="mt-3 text-sm font-medium text-slate-600">
+            Udlægsupload til <span className="text-slate-900">{info.company_name}</span>
+          </p>
+        ) : null}
         <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h1 className="text-2xl font-semibold">Upload udlæg</h1>
           {loading ? (

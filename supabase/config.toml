@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.platform-event-push]
 verify_jwt = false
+
+[functions.expense-upload-link]
+verify_jwt = false

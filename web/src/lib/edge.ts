@@ -144,7 +144,18 @@ export async function getExpenseUploadLinkInfo(token: string): Promise<ExpenseUp
     },
     body: JSON.stringify({ action: 'info', token }),
   })
-  const data = (await res.json().catch(() => ({}))) as ExpenseUploadLinkInfo & { error?: string }
+  const raw = await res.text()
+  let data = {} as ExpenseUploadLinkInfo & { error?: string }
+  if (raw) {
+    try {
+      data = JSON.parse(raw) as typeof data
+    } catch {
+      if (!res.ok) {
+        throw new Error(`Linket kunne ikke indlæses (HTTP ${res.status}).`)
+      }
+      throw new Error('Linket kunne ikke indlæses.')
+    }
+  }
   if (!res.ok) throw new Error(data.error ?? 'Linket kunne ikke indlæses.')
   return data
 }
@@ -196,7 +207,18 @@ export async function submitExpenseUpload(payload: ExpenseUploadPayload): Promis
       vat_rate: payload.vatRate,
     }),
   })
-  const data = (await res.json().catch(() => ({}))) as { voucher_id?: string; error?: string }
+  const raw = await res.text()
+  let data = {} as { voucher_id?: string; error?: string }
+  if (raw) {
+    try {
+      data = JSON.parse(raw) as typeof data
+    } catch {
+      if (!res.ok) {
+        throw new Error(`Bilaget kunne ikke uploades (HTTP ${res.status}).`)
+      }
+      throw new Error('Bilaget kunne ikke uploades.')
+    }
+  }
   if (!res.ok) throw new Error(data.error ?? 'Bilaget kunne ikke uploades.')
   return { voucher_id: data.voucher_id }
 }
