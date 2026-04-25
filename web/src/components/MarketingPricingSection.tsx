@@ -20,6 +20,7 @@ type MarketingBullet = {
   featureId: string | null
   title: string
   subtitle: string | null
+  marketingHidden: boolean
   sortOrder: number
 }
 
@@ -160,6 +161,7 @@ export function MarketingPricingSection({ pub }: { pub: PublicSettings | null })
           featureId: row.feature_id,
           title: row.title,
           subtitle: row.subtitle,
+          marketingHidden: row.marketing_hidden,
           sortOrder: row.sort_order,
         })
         bulletsByPlan.set(row.plan_id, list)
@@ -200,7 +202,11 @@ export function MarketingPricingSection({ pub }: { pub: PublicSettings | null })
           {visiblePlans.map((plan, index) => {
             const planCornerLabel =
               plan.slug === 'pro'
-                ? cornerLabel || 'Mest værdi'
+                ? resolvePricingCornerBadge({
+                    customCorner: pub?.pricing_corner_badge,
+                    compareCents: plan.compare_price_cents,
+                    amountCents: plan.monthly_price_cents,
+                  }) || 'Mest værdi'
                 : plan.is_default_free
                   ? 'Start her'
                   : null
@@ -215,6 +221,7 @@ export function MarketingPricingSection({ pub }: { pub: PublicSettings | null })
                   featureId: b.featureId,
                   title: b.title,
                   subtitle: b.subtitle,
+                  marketingHidden: b.marketingHidden,
                 }))}
                 previousPlan={
                   previousPlan
@@ -226,6 +233,7 @@ export function MarketingPricingSection({ pub }: { pub: PublicSettings | null })
                           featureId: b.featureId,
                           title: b.title,
                           subtitle: b.subtitle,
+                          marketingHidden: b.marketingHidden,
                         })),
                       }
                     : null

@@ -159,6 +159,8 @@ export interface Database {
           compare_price_cents: number | null
           active: boolean
           marketing_hidden: boolean
+          marketing_badge_text: string | null
+          marketing_lock_label: string | null
           is_default_free: boolean
           sort_order: number
           created_at: string
@@ -174,6 +176,8 @@ export interface Database {
           compare_price_cents?: number | null
           active?: boolean
           marketing_hidden?: boolean
+          marketing_badge_text?: string | null
+          marketing_lock_label?: string | null
           is_default_free?: boolean
           sort_order?: number
           created_at?: string
@@ -188,6 +192,8 @@ export interface Database {
           compare_price_cents?: number | null
           active?: boolean
           marketing_hidden?: boolean
+          marketing_badge_text?: string | null
+          marketing_lock_label?: string | null
           is_default_free?: boolean
           sort_order?: number
           updated_at?: string
@@ -201,6 +207,7 @@ export interface Database {
           feature_id: string | null
           title: string
           subtitle: string | null
+          marketing_hidden: boolean
           sort_order: number
           created_at: string
           updated_at: string
@@ -212,6 +219,7 @@ export interface Database {
           feature_id?: string | null
           title: string
           subtitle?: string | null
+          marketing_hidden?: boolean
           sort_order?: number
           created_at?: string
           updated_at?: string
@@ -222,6 +230,7 @@ export interface Database {
           feature_id?: string | null
           title?: string
           subtitle?: string | null
+          marketing_hidden?: boolean
           sort_order?: number
           updated_at?: string
         }

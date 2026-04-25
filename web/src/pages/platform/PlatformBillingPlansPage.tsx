@@ -530,6 +530,43 @@ export function PlatformBillingPlansPage() {
                 />
               </label>
 
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  Badge-tekst
+                  <input
+                    value={plan.marketing_badge_text ?? ''}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setPlans((prev) =>
+                        prev.map((p) => (p.id === plan.id ? { ...p, marketing_badge_text: value || null } : p)),
+                      )
+                    }}
+                    onBlur={(e) =>
+                      void updatePlan(plan, { marketing_badge_text: e.target.value.trim() || null })
+                    }
+                    placeholder={plan.monthly_price_cents > 0 ? PRICING_DEFAULTS.badge : 'Gratis'}
+                    className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+                  />
+                </label>
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  Låse-tekst
+                  <input
+                    value={plan.marketing_lock_label ?? ''}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setPlans((prev) =>
+                        prev.map((p) => (p.id === plan.id ? { ...p, marketing_lock_label: value || null } : p)),
+                      )
+                    }}
+                    onBlur={(e) =>
+                      void updatePlan(plan, { marketing_lock_label: e.target.value.trim() || null })
+                    }
+                    placeholder={PRICING_DEFAULTS.lockLabel}
+                    className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+                  />
+                </label>
+              </div>
+
               <div className="mt-4 border-t border-slate-100 pt-4">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                   Punkter på pricing-kortet
@@ -540,7 +577,8 @@ export function PlatformBillingPlansPage() {
                       key={b.id}
                       className={
                         'rounded-lg border px-2 py-2 ' +
-                        (b.kind === 'heading' ? 'border-slate-100 bg-slate-50' : 'border-slate-200 bg-white')
+                        (b.kind === 'heading' ? 'border-slate-100 bg-slate-50' : 'border-slate-200 bg-white') +
+                        (b.marketing_hidden ? ' opacity-60' : '')
                       }
                     >
                       <div className="flex items-start gap-1">
@@ -598,20 +636,39 @@ export function PlatformBillingPlansPage() {
                             className="w-full rounded border border-transparent px-1 py-0.5 text-sm font-medium text-slate-900 hover:border-slate-200 focus:border-slate-300 focus:outline-none"
                           />
                           {b.kind !== 'heading' ? (
-                            <input
-                              value={b.subtitle ?? ''}
-                              onChange={(e) => {
-                                const value = e.target.value
-                                setBullets((prev) =>
-                                  prev.map((x) => (x.id === b.id ? { ...x, subtitle: value } : x)),
-                                )
-                              }}
-                              onBlur={(e) =>
-                                void updateBullet(b, { subtitle: e.target.value.trim() || null })
-                              }
-                              placeholder="Undertekst (valgfri)"
-                              className="mt-0.5 w-full rounded border border-transparent px-1 py-0.5 text-xs text-slate-500 hover:border-slate-200 focus:border-slate-300 focus:outline-none"
-                            />
+                            <div className="mt-0.5 flex items-center gap-2">
+                              <input
+                                value={b.subtitle ?? ''}
+                                onChange={(e) => {
+                                  const value = e.target.value
+                                  setBullets((prev) =>
+                                    prev.map((x) => (x.id === b.id ? { ...x, subtitle: value } : x)),
+                                  )
+                                }}
+                                onBlur={(e) =>
+                                  void updateBullet(b, { subtitle: e.target.value.trim() || null })
+                                }
+                                placeholder="Undertekst (valgfri)"
+                                className="min-w-0 flex-1 rounded border border-transparent px-1 py-0.5 text-xs text-slate-500 hover:border-slate-200 focus:border-slate-300 focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => void updateBullet(b, { marketing_hidden: !b.marketing_hidden })}
+                                className={
+                                  'shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium ' +
+                                  (b.marketing_hidden
+                                    ? 'border-slate-300 bg-slate-100 text-slate-600'
+                                    : 'border-emerald-200 bg-emerald-50 text-emerald-800')
+                                }
+                                title={
+                                  b.marketing_hidden
+                                    ? 'Hele punktet er skjult for kunder — klik for at vise'
+                                    : 'Hele punktet vises for kunder — klik for at skjule'
+                                }
+                              >
+                                {b.marketing_hidden ? 'Skjult' : 'Vist'}
+                              </button>
+                            </div>
                           ) : null}
                           {b.kind === 'feature' && b.feature_id ? (
                             <div className="mt-0.5 px-1 font-mono text-[10px] text-emerald-700">
@@ -739,6 +796,7 @@ export function PlatformBillingPlansPage() {
                   featureId: b.feature_id,
                   title: b.title,
                   subtitle: b.subtitle,
+                  marketingHidden: b.marketing_hidden,
                 }))}
                 previousPlan={
                   visiblePrevPlan
@@ -750,6 +808,7 @@ export function PlatformBillingPlansPage() {
                           featureId: b.feature_id,
                           title: b.title,
                           subtitle: b.subtitle,
+                          marketingHidden: b.marketing_hidden,
                         })),
                       }
                     : null

@@ -3,10 +3,16 @@
 -- mens billing_plan_bullets driver visningen på pricing-siden.
 
 alter table public.billing_plans
-  add column if not exists marketing_hidden boolean not null default false;
+  add column if not exists marketing_hidden boolean not null default false,
+  add column if not exists marketing_badge_text text,
+  add column if not exists marketing_lock_label text;
 
 comment on column public.billing_plans.marketing_hidden is
   'Hvis true skjules planen på offentlig pricing-side. Aktiv styres separat.';
+comment on column public.billing_plans.marketing_badge_text is
+  'Valgfri tekst i øverste badge på pricing-kortet, fx "Introtilbud — lås prisen".';
+comment on column public.billing_plans.marketing_lock_label is
+  'Valgfri tekst i grønt låse-badge under prisen, fx "Fast pris så længe du er kunde".';
 
 create table if not exists public.billing_plan_bullets (
   id uuid primary key default gen_random_uuid(),
@@ -15,12 +21,19 @@ create table if not exists public.billing_plan_bullets (
   feature_id uuid references public.billing_features (id) on delete set null,
   title text not null,
   subtitle text,
+  marketing_hidden boolean not null default false,
   sort_order int not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   check (length(trim(title)) > 0),
   check ((kind = 'feature') = (feature_id is not null) or kind <> 'feature')
 );
+
+alter table public.billing_plan_bullets
+  add column if not exists marketing_hidden boolean not null default false;
+
+comment on column public.billing_plan_bullets.marketing_hidden is
+  'Hvis true skjules hele punktet på offentlig pricing-side, men punktet bevares i admin.';
 
 create index if not exists billing_plan_bullets_plan_idx
   on public.billing_plan_bullets (plan_id, sort_order);

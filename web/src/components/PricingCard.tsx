@@ -10,11 +10,20 @@ export type PricingCardBullet = {
   featureId: string | null
   title: string
   subtitle: string | null
+  marketingHidden?: boolean
 }
 
 export type PricingCardPlan = Pick<
   BillingPlan,
-  'id' | 'name' | 'slug' | 'description' | 'monthly_price_cents' | 'compare_price_cents' | 'is_default_free'
+  | 'id'
+  | 'name'
+  | 'slug'
+  | 'description'
+  | 'monthly_price_cents'
+  | 'compare_price_cents'
+  | 'marketing_badge_text'
+  | 'marketing_lock_label'
+  | 'is_default_free'
 >
 
 export type PricingCardProps = {
@@ -82,12 +91,18 @@ export function PricingCard({
   asLink = true,
 }: PricingCardProps) {
   const isPaid = plan.monthly_price_cents > 0
+  const cardBadge = plan.marketing_badge_text?.trim() || badge
+  const cardLockLabel = plan.marketing_lock_label?.trim() || lockLabel
   const previousFeatureIds = new Set(
     previousPlan?.bullets.filter((b) => b.kind === 'feature' && b.featureId).map((b) => b.featureId as string) ?? [],
   )
   const visibleBullets = previousPlan
-    ? bullets.filter((b) => !(b.kind === 'feature' && b.featureId && previousFeatureIds.has(b.featureId)))
-    : bullets
+    ? bullets.filter(
+        (b) =>
+          !b.marketingHidden &&
+          !(b.kind === 'feature' && b.featureId && previousFeatureIds.has(b.featureId)),
+      )
+    : bullets.filter((b) => !b.marketingHidden)
 
   const ctaClass =
     'mt-auto flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold shadow-sm transition ' +
@@ -123,7 +138,7 @@ export function PricingCard({
               : 'bg-slate-50 text-slate-700 ring-slate-200')
           }
         >
-          {isPaid ? badge : 'Gratis'}
+          {isPaid ? cardBadge : 'Gratis'}
         </span>
       </div>
 
@@ -164,7 +179,7 @@ export function PricingCard({
       {isPaid ? (
         <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200">
           <LockIcon className="h-3.5 w-3.5" />
-          {lockLabel}
+          {cardLockLabel}
         </div>
       ) : null}
 

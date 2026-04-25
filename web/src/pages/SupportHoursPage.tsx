@@ -140,8 +140,8 @@ export function SupportHoursPage() {
                     ) : null}
                     {pub?.contact_phone ? (
                       <li className="flex gap-4">
-                        <span className="mt-0.5 text-slate-400" aria-hidden>
-                          <PhoneIcon className="h-5 w-5" />
+                        <span className="mt-0.5 flex h-5 w-5 items-center justify-center text-slate-400" aria-hidden>
+                          <PhoneIcon className="h-[18px] w-[18px]" />
                         </span>
                         <div>
                           <div className="text-xs font-medium uppercase tracking-wide text-slate-400">
@@ -187,10 +187,20 @@ function ClockIcon({ className }: { className?: string }) {
 
 function HeadsetIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-      <path d="M4 14v1a4 4 0 0 0 4 4h1" strokeLinecap="round" />
-      <path d="M20 14v1a4 4 0 0 1-4 4h-1" strokeLinecap="round" />
-      <path d="M6 14h-.5A2.5 2.5 0 0 1 3 11.5V10a9 9 0 0 1 18 0v1.5A2.5 2.5 0 0 1 18.5 14H18" strokeLinecap="round" strokeLinejoin="round" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M4 12a8 8 0 0 1 16 0" />
+      <path d="M4 12v3a2 2 0 0 0 2 2h1v-7H6a2 2 0 0 0-2 2Z" />
+      <path d="M20 12v3a2 2 0 0 1-2 2h-1v-7h1a2 2 0 0 1 2 2Z" />
+      <path d="M17 17v1a3 3 0 0 1-3 3h-2" />
     </svg>
   )
 }
@@ -206,11 +216,18 @@ function MailIcon({ className }: { className?: string }) {
 
 function PhoneIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
       <path
-        d="M15 3h3a2 2 0 0 1 2 2v2a2 2 0 0 1-1.1 1.8l-2.4 1.2a12 12 0 0 1-5.3 5.3l-1.2 2.4A2 2 0 0 1 9 19H7a2 2 0 0 1-2-2v-3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.7 2Z"
       />
     </svg>
   )
