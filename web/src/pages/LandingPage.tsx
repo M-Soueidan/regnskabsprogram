@@ -16,6 +16,10 @@ import { marketingFaqs, marketingPerks, marketingTestimonials } from '@/marketin
 import type { Database } from '@/types/database'
 
 type PublicSettings = Database['public']['Tables']['platform_public_settings']['Row']
+type CheapestPlan = {
+  monthly_price_cents: number
+  compare_price_cents: number | null
+}
 
 const landingFeatureCards = marketingFeatureCards.slice(0, 4)
 
@@ -23,6 +27,7 @@ export function LandingPage() {
   const { session, loading } = useApp()
   const [searchParams] = useSearchParams()
   const [pub, setPub] = useState<PublicSettings | null>(null)
+  const [cheapestPlan, setCheapestPlan] = useState<CheapestPlan | null>(null)
   /** Loggede brugere kan se forsiden via /?forside=1 (fx. fra onboarding). */
   const showMarketingWhileLoggedIn = searchParams.get('forside') === '1'
 
@@ -35,6 +40,18 @@ export function LandingPage() {
       .maybeSingle()
       .then(({ data }) => {
         if (data) setPub(data)
+      })
+    void supabase
+      .from('billing_plans')
+      .select('monthly_price_cents, compare_price_cents')
+      .eq('active', true)
+      .eq('marketing_hidden', false)
+      .gt('monthly_price_cents', 0)
+      .order('monthly_price_cents', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setCheapestPlan(data)
       })
   }, [])
 
@@ -59,8 +76,14 @@ export function LandingPage() {
     return <Navigate to="/home" replace />
   }
 
-  const amountCents = pub?.pricing_amount_cents ?? pub?.monthly_price_cents ?? 9900
-  const compareCents = pub?.pricing_compare_cents ?? null
+  const amountCents =
+    cheapestPlan?.monthly_price_cents ??
+    pub?.pricing_amount_cents ??
+    pub?.monthly_price_cents ??
+    9900
+  const compareCents = cheapestPlan
+    ? cheapestPlan.compare_price_cents
+    : (pub?.pricing_compare_cents ?? null)
   const compareKr =
     compareCents != null && compareCents > amountCents
       ? Math.round(compareCents / 100)

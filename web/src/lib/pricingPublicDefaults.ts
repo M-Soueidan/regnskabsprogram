@@ -6,8 +6,8 @@ export type PricingFeatureItem = {
 }
 
 export const PRICING_DEFAULTS = {
-  title: 'Én plan. Alt inkluderet.',
-  subtitle: 'Ingen bindingsperiode. Opsig når du vil.',
+  title: 'Find den plan der passer til dig',
+  subtitle: 'Skift plan når som helst — ingen binding, opsig når du vil.',
   badge: 'Introtilbud — lås prisen',
   planName: 'Bilago',
   unitLabel: 'kr./md.',

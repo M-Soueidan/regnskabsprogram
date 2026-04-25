@@ -145,11 +145,9 @@ export function InvoicePdfPage() {
             className="flex min-w-0 items-center justify-self-start pr-2 text-[15px] font-medium text-indigo-600"
           >
             <ChevronLeftIcon />
-            <span className="truncate">
-              {isCreditNote ? 'Kreditnota' : 'Faktura'} {invoiceNumber}
-            </span>
+            <span className="truncate">{isCreditNote ? 'Kreditnotaer' : 'Fakturaer'}</span>
           </button>
-          <h1 className="max-w-[12rem] truncate text-center text-lg font-semibold text-slate-950 sm:max-w-none">
+          <h1 className="max-w-[11rem] truncate text-center text-lg font-semibold text-slate-950 sm:max-w-none">
             {isCreditNote ? 'Kreditnota' : 'Faktura'} {invoiceNumber}
           </h1>
           <button
