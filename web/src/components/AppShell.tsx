@@ -184,6 +184,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
     user,
     companies,
     currentCompany,
+    currentRole,
     subscription,
     setCurrentCompanyId,
     impersonation,
@@ -337,7 +338,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
             )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {!ok && currentCompany && (
+            {!ok && currentCompany && currentRole === 'owner' && (
               <button
                 type="button"
                 disabled={checkout.loading}

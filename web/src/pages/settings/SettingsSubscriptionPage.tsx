@@ -15,8 +15,9 @@ import {
 } from '@/lib/trialPaymentUiPreference'
 
 export function SettingsSubscriptionPage() {
-  const { currentCompany, subscription, billingEntitlements, refresh } = useApp()
+  const { currentCompany, currentRole, subscription, billingEntitlements, refresh } = useApp()
   const ok = subscriptionOk(subscription)
+  const canManageBilling = currentRole === 'owner'
   const [hideTrialBanner, setHideTrialBanner] = useState(getHideTrialBannerDuringTrial)
   const [priceCents, setPriceCents] = useState<number | null>(null)
   const [plans, setPlans] = useState<Database['public']['Tables']['billing_plans']['Row'][]>([])
@@ -155,7 +156,7 @@ export function SettingsSubscriptionPage() {
             </span>
           </p>
         ) : null}
-        {!ok ? (
+        {!ok && canManageBilling ? (
           <button
             type="button"
             disabled={checkout.loading}
@@ -171,9 +172,14 @@ export function SettingsSubscriptionPage() {
             {checkout.loading ? 'Åbner Stripe…' : 'Aktivér abonnement'}
           </button>
         ) : null}
+        {!canManageBilling ? (
+          <p className="mt-2 text-sm text-slate-500">
+            Kun ejeren af virksomheden kan ændre abonnement og betalingsoplysninger.
+          </p>
+        ) : null}
       </div>
 
-      {plans.length > 0 ? (
+      {plans.length > 0 && canManageBilling ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
