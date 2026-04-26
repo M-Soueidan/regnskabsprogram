@@ -61,6 +61,7 @@ serve(async (req) => {
       data: {
         full_name: fullName,
         plan: plan || null,
+        signup_flow: 'bilago_smtp_signup',
       },
     },
   })
