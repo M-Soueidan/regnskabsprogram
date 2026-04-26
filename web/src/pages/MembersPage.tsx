@@ -71,6 +71,14 @@ const ROLE_DESCRIPTIONS: Record<CompanyRole, string> = {
   accountant: 'Læseadgang og eksport — til revisor.',
 }
 
+function isDuplicateInviteError(err: { code?: string; message?: string } | null) {
+  if (!err) return false
+  return (
+    err.code === '23505'
+    || /pending_invites_company_email_key|duplicate key|unique constraint/i.test(err.message ?? '')
+  )
+}
+
 export function MembersPage() {
   const { currentCompany, currentRole, user } = useApp()
   const canManage = hasRole(currentRole, ['owner'])
@@ -202,6 +210,11 @@ export function MembersPage() {
     })
     setInviting(false)
     if (err) {
+      if (isDuplicateInviteError(err)) {
+        setMessage(`Invitationen til ${email} findes allerede under afventende invitationer.`)
+        await load()
+        return
+      }
       setError(err.message)
       return
     }
