@@ -214,7 +214,7 @@ serve(async (req) => {
       company_name: company?.name?.trim() || 'Virksomhed',
       role_label: ROLE_LABELS[role] ?? role,
       invitee_email: inviteeEmail,
-      signup_url: `${resolveAppPublicUrl()}/signup`,
+      signup_url: `${resolveAppPublicUrl()}/signup/invitation?email=${encodeURIComponent(inviteeEmail)}`,
     })
     if (!rendered) {
       return jsonResponse({ ok: true, skipped: true })

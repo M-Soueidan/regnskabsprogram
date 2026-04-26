@@ -51,7 +51,7 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<TemplateKey, TemplateBlock> = {
     subject: 'Du er inviteret til {{company_name}} i Bilago',
     html: `<p style="margin:0 0 16px;">Hej,</p>
 <p style="margin:0 0 16px;"><strong>{{company_name}}</strong> har inviteret dig som <strong>{{role_label}}</strong> i Bilago.</p>
-<p style="margin:0 0 20px;">Opret en konto med denne e-mail-adresse for at acceptere invitationen:</p>
+<p style="margin:0 0 20px;">Opret en konto med denne e-mail-adresse for at acceptere invitationen. Du skal ikke vælge eller betale for et abonnement.</p>
 <p style="margin:0 0 20px;">
   <a href="{{signup_url}}" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;font-size:14px;">Opret konto</a>
 </p>

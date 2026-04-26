@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { invokeAuthSignupConfirmation } from '@/lib/edge'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
@@ -16,8 +16,11 @@ type SignupPlan = {
 export function SignupPage() {
   const { session, loading } = useApp()
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [email, setEmail] = useState('')
+  const isInviteSignup = location.pathname === '/signup/invitation' || searchParams.get('invite') === '1'
+  const invitedEmail = searchParams.get('email')?.trim().toLowerCase() ?? ''
+  const [email, setEmail] = useState(invitedEmail)
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -26,6 +29,7 @@ export function SignupPage() {
   const planSlug = searchParams.get('plan') ?? ''
 
   useEffect(() => {
+    if (isInviteSignup) return
     let cancelled = false
     void (async () => {
       const { data } = await supabase
@@ -40,16 +44,21 @@ export function SignupPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [isInviteSignup])
 
   useEffect(() => {
+    if (isInviteSignup) return
     if (plans.length === 0) return
     if (planSlug && plans.some((p) => p.slug === planSlug)) return
     const fallback = plans[0]?.slug
     if (fallback) {
       setSearchParams({ plan: fallback }, { replace: true })
     }
-  }, [plans, planSlug, setSearchParams])
+  }, [isInviteSignup, plans, planSlug, setSearchParams])
+
+  useEffect(() => {
+    if (invitedEmail) setEmail(invitedEmail)
+  }, [invitedEmail])
 
   if (!loading && session) {
     return <Navigate to="/" replace />
@@ -70,7 +79,8 @@ export function SignupPage() {
         email,
         password,
         fullName,
-        plan: planSlug || null,
+        plan: isInviteSignup ? null : planSlug || null,
+        invite: isInviteSignup,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kunne ikke sende bekræftelsesmail')
@@ -80,7 +90,8 @@ export function SignupPage() {
     setBusy(false)
     const params = new URLSearchParams()
     params.set('email', email)
-    if (planSlug) params.set('plan', planSlug)
+    if (isInviteSignup) params.set('invite', '1')
+    else if (planSlug) params.set('plan', planSlug)
     navigate(`/signup/bekraeft-email?${params.toString()}`, { replace: true })
   }
 
@@ -91,9 +102,13 @@ export function SignupPage() {
           <BrandMark />
         </div>
         <h1 className="text-2xl font-semibold text-slate-900">Opret konto</h1>
-        <p className="mt-1 text-sm text-slate-500">Start med virksomhed og abonnement</p>
+        <p className="mt-1 text-sm text-slate-500">
+          {isInviteSignup
+            ? 'Accepter invitationen og få adgang til virksomheden'
+            : 'Start med virksomhed og abonnement'}
+        </p>
         <form className="mt-6 space-y-4" onSubmit={(e) => void submit(e)}>
-          {plans.length > 0 ? (
+          {!isInviteSignup && plans.length > 0 ? (
             <div>
               <label className="text-sm font-medium text-slate-700" htmlFor="plan">
                 Valgt plan
@@ -134,8 +149,14 @@ export function SignupPage() {
               autoComplete="email"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={email}
+              readOnly={Boolean(invitedEmail)}
               onChange={(e) => setEmail(e.target.value)}
             />
+            {isInviteSignup ? (
+              <p className="mt-1 text-xs text-slate-500">
+                Brug samme e-mail som invitationen, så vi kan koble dig på virksomheden.
+              </p>
+            ) : null}
           </div>
           <div>
             <label
@@ -177,9 +198,15 @@ export function SignupPage() {
             Log ind
           </Link>
         </p>
-        <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-center text-xs text-emerald-800 ring-1 ring-emerald-200">
-          30 dages gratis prøveperiode på alle planer — uden kortkrav.
-        </p>
+        {isInviteSignup ? (
+          <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-center text-xs text-emerald-800 ring-1 ring-emerald-200">
+            Du betaler ikke abonnement. Adgangen styres af virksomheden, der har inviteret dig.
+          </p>
+        ) : (
+          <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-center text-xs text-emerald-800 ring-1 ring-emerald-200">
+            30 dages gratis prøveperiode på alle planer — uden kortkrav.
+          </p>
+        )}
       </div>
     </div>
   )

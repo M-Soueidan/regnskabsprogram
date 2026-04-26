@@ -18,6 +18,7 @@ serve(async (req) => {
     password?: string
     full_name?: string
     plan?: string | null
+    invite?: boolean
   }
   try {
     body = await req.json()
@@ -29,6 +30,7 @@ serve(async (req) => {
   const password = body.password ?? ''
   const fullName = (body.full_name ?? '').trim()
   const plan = (body.plan ?? '').trim()
+  const isInviteSignup = body.invite === true
 
   if (!email || !email.includes('@')) {
     return jsonResponse({ error: 'Ugyldig e-mail' }, 400)
@@ -48,7 +50,9 @@ serve(async (req) => {
     .maybeSingle()
 
   const templates = mergeEmailTemplates(pub?.email_templates)
-  const redirectTo = plan
+  const redirectTo = isInviteSignup
+    ? `${resolveAppPublicUrl()}/home`
+    : plan
     ? `${resolveAppPublicUrl()}/onboarding?plan=${encodeURIComponent(plan)}`
     : `${resolveAppPublicUrl()}/onboarding`
 
@@ -60,8 +64,8 @@ serve(async (req) => {
       redirectTo,
       data: {
         full_name: fullName,
-        plan: plan || null,
-        signup_flow: 'bilago_smtp_signup',
+        plan: isInviteSignup ? null : plan || null,
+        signup_flow: isInviteSignup ? 'bilago_invite_signup' : 'bilago_smtp_signup',
       },
     },
   })

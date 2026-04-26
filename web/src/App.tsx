@@ -117,6 +117,7 @@ export default function App() {
           <Route path="/support-tider" element={<SupportHoursPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup/bekraeft-email" element={<SignupEmailConfirmationPage />} />
+          <Route path="/signup/invitation" element={<SignupPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route element={<ProtectedRoute />}>
             {/* Kun /platform/* rammer platform-guard — ellers blokerede /app/settings for ikke-staff */}

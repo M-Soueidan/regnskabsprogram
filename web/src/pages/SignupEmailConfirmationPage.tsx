@@ -6,6 +6,7 @@ export function SignupEmailConfirmationPage() {
   const { session, loading } = useApp()
   const [searchParams] = useSearchParams()
   const email = searchParams.get('email') ?? ''
+  const isInviteSignup = searchParams.get('invite') === '1'
 
   if (!loading && session) {
     return <Navigate to="/" replace />
@@ -22,8 +23,17 @@ export function SignupEmailConfirmationPage() {
         </p>
         <h1 className="mt-3 text-2xl font-semibold text-slate-900">Tjek din e-mail</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          Vi har sendt et bekræftelseslink til din e-mail. Når du har bekræftet, kommer du til
-          <span className="font-medium text-slate-900"> Kom i gang</span> (CVR og virksomhed).
+          {isInviteSignup ? (
+            <>
+              Vi har sendt et bekræftelseslink til din e-mail. Når du har bekræftet, får du adgang
+              til virksomheden, der har inviteret dig.
+            </>
+          ) : (
+            <>
+              Vi har sendt et bekræftelseslink til din e-mail. Når du har bekræftet, kommer du til
+              <span className="font-medium text-slate-900"> Kom i gang</span> (CVR og virksomhed).
+            </>
+          )}
         </p>
         {email ? (
           <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">

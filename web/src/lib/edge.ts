@@ -376,6 +376,7 @@ export async function invokeAuthSignupConfirmation(input: {
   password: string
   fullName?: string
   plan?: string | null
+  invite?: boolean
 }) {
   const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string
   const res = await fetch(fnUrl('auth-signup-confirmation'), {
@@ -389,6 +390,7 @@ export async function invokeAuthSignupConfirmation(input: {
       password: input.password,
       full_name: input.fullName?.trim() ?? '',
       plan: input.plan ?? null,
+      invite: input.invite === true,
     }),
   })
   const json = (await res.json()) as { ok?: boolean; error?: string }
