@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
@@ -6,7 +6,8 @@ import { useApp } from '@/context/AppProvider'
 const ACCEPT_LOGO = 'image/png,image/jpeg,image/jpg'
 
 export function SettingsInvoicePage() {
-  const { currentCompany, refresh } = useApp()
+  const { currentCompany, currentRole, refresh } = useApp()
+  const canEdit = currentRole === 'owner'
   const [attachPdf, setAttachPdf] = useState(true)
   const [invoiceEmail, setInvoiceEmail] = useState('')
   const [invoicePhone, setInvoicePhone] = useState('')
@@ -29,38 +30,46 @@ export function SettingsInvoicePage() {
     null,
   )
 
+  // Initialiser felter når brugeren skifter til en anden virksomhed.
+  // Lyt KUN på id (ikke hele currentCompany), så et baggrunds-refresh fra AppProvider
+  // — fx ved tab-skift / TOKEN_REFRESHED — ikke overskriver ugemte ændringer.
+  const hydratedForCompanyId = useRef<string | null>(null)
   useEffect(() => {
-    if (currentCompany) {
-      setAttachPdf(currentCompany.invoice_attach_pdf_to_email !== false)
-      setInvoiceEmail(currentCompany.invoice_email ?? '')
-      setInvoicePhone(currentCompany.invoice_phone ?? '')
-      setInvoiceWebsite(currentCompany.invoice_website ?? '')
-      setBankReg(currentCompany.bank_reg_number ?? '')
-      setBankAccount(currentCompany.bank_account_number ?? '')
-      setIban(currentCompany.iban ?? '')
-      setFooterNote(currentCompany.invoice_footer_note ?? '')
-      setInvoiceStartingNumber(
-        typeof currentCompany.invoice_starting_number === 'number'
-          ? currentCompany.invoice_starting_number
-          : 1,
-      )
-      setInvoiceDigitWidth(
-        typeof currentCompany.invoice_number_digit_width === 'number'
-          ? currentCompany.invoice_number_digit_width
-          : 4,
-      )
-      setAutomationEnabled(currentCompany.automation_reminders_enabled === true)
-      setAutomationFirstDaysAfterDue(
-        typeof currentCompany.automation_reminder_first_days_after_due === 'number'
-          ? currentCompany.automation_reminder_first_days_after_due
-          : 1,
-      )
-      setAutomationIntervalDays(
-        typeof currentCompany.automation_reminder_interval_days === 'number'
-          ? currentCompany.automation_reminder_interval_days
-          : 7,
-      )
+    if (!currentCompany) {
+      hydratedForCompanyId.current = null
+      return
     }
+    if (hydratedForCompanyId.current === currentCompany.id) return
+    hydratedForCompanyId.current = currentCompany.id
+    setAttachPdf(currentCompany.invoice_attach_pdf_to_email !== false)
+    setInvoiceEmail(currentCompany.invoice_email ?? '')
+    setInvoicePhone(currentCompany.invoice_phone ?? '')
+    setInvoiceWebsite(currentCompany.invoice_website ?? '')
+    setBankReg(currentCompany.bank_reg_number ?? '')
+    setBankAccount(currentCompany.bank_account_number ?? '')
+    setIban(currentCompany.iban ?? '')
+    setFooterNote(currentCompany.invoice_footer_note ?? '')
+    setInvoiceStartingNumber(
+      typeof currentCompany.invoice_starting_number === 'number'
+        ? currentCompany.invoice_starting_number
+        : 1,
+    )
+    setInvoiceDigitWidth(
+      typeof currentCompany.invoice_number_digit_width === 'number'
+        ? currentCompany.invoice_number_digit_width
+        : 4,
+    )
+    setAutomationEnabled(currentCompany.automation_reminders_enabled === true)
+    setAutomationFirstDaysAfterDue(
+      typeof currentCompany.automation_reminder_first_days_after_due === 'number'
+        ? currentCompany.automation_reminder_first_days_after_due
+        : 1,
+    )
+    setAutomationIntervalDays(
+      typeof currentCompany.automation_reminder_interval_days === 'number'
+        ? currentCompany.automation_reminder_interval_days
+        : 7,
+    )
   }, [currentCompany])
 
   useEffect(() => {
@@ -103,7 +112,7 @@ export function SettingsInvoicePage() {
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
-    if (!currentCompany) return
+    if (!currentCompany || !canEdit) return
     setSaving(true)
     setError(null)
     setMessage(null)
@@ -151,7 +160,7 @@ export function SettingsInvoicePage() {
   async function onLogoSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ''
-    if (!file || !currentCompany) return
+    if (!file || !currentCompany || !canEdit) return
     if (!file.type.startsWith('image/')) {
       setError('Logo skal være PNG eller JPEG.')
       return
@@ -188,7 +197,7 @@ export function SettingsInvoicePage() {
   }
 
   async function removeLogo() {
-    if (!currentCompany?.invoice_logo_path) return
+    if (!currentCompany?.invoice_logo_path || !canEdit) return
     setLogoBusy(true)
     setError(null)
     const path = currentCompany.invoice_logo_path
@@ -215,16 +224,24 @@ export function SettingsInvoicePage() {
 
   return (
     <div className="space-y-8">
+      {!canEdit ? (
+        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Kun ejeren af virksomheden kan ændre faktura-indstillinger. Du kan se de nuværende værdier herunder.
+        </p>
+      ) : null}
       <form
         onSubmit={(e) => void save(e)}
-        className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+        className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
       >
         <h2 className="text-lg font-medium text-slate-900">Faktura og e-mail</h2>
-        <p className="text-sm text-slate-600">
+        <p className="mt-2 text-sm text-slate-600">
           Det, der vises på PDF-fakturaen og i kommunikation med kunden. Virksomhedsnavn og adresse
           findes under fanen Generelt.
         </p>
-
+        <fieldset
+          disabled={!canEdit}
+          className="m-0 mt-5 min-w-0 space-y-5 border-0 p-0 disabled:opacity-70"
+        >
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-3">
           <input
             type="checkbox"
@@ -517,6 +534,7 @@ export function SettingsInvoicePage() {
         >
           {saving ? 'Gemmer…' : 'Gem faktura-indstillinger'}
         </button>
+        </fieldset>
       </form>
     </div>
   )

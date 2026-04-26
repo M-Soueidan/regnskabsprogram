@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
 import {
@@ -18,14 +18,21 @@ export function SettingsGeneralPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  // Initialiser kun ved virksomhedsskift, så baggrunds-refresh i AppProvider
+  // (fx ved tab-skift) ikke overskriver ugemte ændringer.
+  const hydratedForCompanyId = useRef<string | null>(null)
   useEffect(() => {
-    if (currentCompany) {
-      setName(currentCompany.name)
-      setCvr(currentCompany.cvr ?? '')
-      setStreet(currentCompany.street_address ?? '')
-      setPostalCode(currentCompany.postal_code ?? '')
-      setCity(currentCompany.city ?? '')
+    if (!currentCompany) {
+      hydratedForCompanyId.current = null
+      return
     }
+    if (hydratedForCompanyId.current === currentCompany.id) return
+    hydratedForCompanyId.current = currentCompany.id
+    setName(currentCompany.name)
+    setCvr(currentCompany.cvr ?? '')
+    setStreet(currentCompany.street_address ?? '')
+    setPostalCode(currentCompany.postal_code ?? '')
+    setCity(currentCompany.city ?? '')
   }, [currentCompany])
 
   async function saveCompany(e: React.FormEvent) {
