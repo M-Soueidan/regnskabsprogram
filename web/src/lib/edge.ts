@@ -402,7 +402,7 @@ export async function invokeAuthSignupConfirmation(input: {
       invite: input.invite === true,
     }),
   })
-  const json = (await res.json()) as { ok?: boolean; error?: string }
+  const json = (await res.json()) as { ok?: boolean; auto_login?: boolean; error?: string }
   if (!res.ok) throw new Error(json.error ?? 'Kunne ikke sende bekræftelsesmail')
   return json
 }

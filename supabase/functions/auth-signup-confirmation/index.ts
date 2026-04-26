@@ -43,6 +43,44 @@ serve(async (req) => {
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const admin = createClient(supabaseUrl, serviceKey)
 
+  // Inviterede brugere har allerede bevist email-ejerskab via invitations-mailen,
+  // så vi opretter dem auto-confirmed og springer den ekstra bekræftelsesmail over.
+  if (isInviteSignup) {
+    const { data: invite, error: inviteErr } = await admin
+      .from('pending_invites')
+      .select('id')
+      .eq('email', email)
+      .limit(1)
+      .maybeSingle()
+    if (inviteErr) {
+      console.warn('pending_invites lookup', inviteErr.message)
+      return jsonResponse({ error: 'Kunne ikke verificere invitation.' }, 500)
+    }
+    if (!invite) {
+      return jsonResponse({ error: 'Ingen aktiv invitation matcher denne e-mail.' }, 404)
+    }
+
+    const { error: createErr } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName,
+        signup_flow: 'bilago_invite_signup',
+      },
+    })
+    if (createErr) {
+      const lower = createErr.message.toLowerCase()
+      if (lower.includes('already') || lower.includes('registered') || lower.includes('exists')) {
+        return jsonResponse({ error: 'Der findes allerede en konto med denne e-mail.' }, 409)
+      }
+      console.warn('createUser invite', createErr.message)
+      return jsonResponse({ error: 'Kunne ikke oprette konto.' }, 500)
+    }
+
+    return jsonResponse({ ok: true, auto_login: true })
+  }
+
   const { data: pub } = await admin
     .from('platform_public_settings')
     .select('email_templates')
@@ -50,9 +88,7 @@ serve(async (req) => {
     .maybeSingle()
 
   const templates = mergeEmailTemplates(pub?.email_templates)
-  const redirectTo = isInviteSignup
-    ? `${resolveAppPublicUrl()}/home`
-    : plan
+  const redirectTo = plan
     ? `${resolveAppPublicUrl()}/onboarding?plan=${encodeURIComponent(plan)}`
     : `${resolveAppPublicUrl()}/onboarding`
 
@@ -64,8 +100,8 @@ serve(async (req) => {
       redirectTo,
       data: {
         full_name: fullName,
-        plan: isInviteSignup ? null : plan || null,
-        signup_flow: isInviteSignup ? 'bilago_invite_signup' : 'bilago_smtp_signup',
+        plan: plan || null,
+        signup_flow: 'bilago_smtp_signup',
       },
     },
   })

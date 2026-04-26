@@ -74,8 +74,9 @@ export function SignupPage() {
       setBusy(false)
       return
     }
+    let result: { auto_login?: boolean }
     try {
-      await invokeAuthSignupConfirmation({
+      result = await invokeAuthSignupConfirmation({
         email,
         password,
         fullName,
@@ -87,11 +88,20 @@ export function SignupPage() {
       setBusy(false)
       return
     }
+    if (result.auto_login) {
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
+      setBusy(false)
+      if (signInErr) {
+        setError(signInErr.message)
+        return
+      }
+      navigate('/home', { replace: true })
+      return
+    }
     setBusy(false)
     const params = new URLSearchParams()
     params.set('email', email)
-    if (isInviteSignup) params.set('invite', '1')
-    else if (planSlug) params.set('plan', planSlug)
+    if (planSlug) params.set('plan', planSlug)
     navigate(`/signup/bekraeft-email?${params.toString()}`, { replace: true })
   }
 
