@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactElement } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ROLE_LABELS, subscriptionOk, useApp } from '@/context/AppProvider'
 import { useSupportUnread } from '@/context/SupportUnreadContext'
@@ -142,7 +143,7 @@ function CoinIcon({ className }: { className?: string }) {
 type MoreItem = {
   to: string
   label: string
-  icon: (p: { className?: string }) => JSX.Element
+  icon: (p: { className?: string }) => ReactElement
   onlyFor?: 'virksomhed' | 'forening'
 }
 

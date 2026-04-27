@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
@@ -28,7 +28,7 @@ type NavIconProps = { className?: string }
 type NavItem = {
   to: string
   label: string
-  icon: (p: NavIconProps) => JSX.Element
+  icon: (p: NavIconProps) => ReactElement
   /** Hvis sat, vises kun for denne entity_type. */
   onlyFor?: 'virksomhed' | 'forening'
 }
