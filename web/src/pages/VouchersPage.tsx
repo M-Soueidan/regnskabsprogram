@@ -483,6 +483,30 @@ export function VouchersPage() {
     )
   }
 
+  async function updateVoucherDetails(
+    v: Voucher,
+    updates: Partial<
+      Pick<
+        Voucher,
+        'title' | 'expense_date' | 'gross_cents' | 'vat_cents' | 'net_cents' | 'vat_rate'
+      >
+    >,
+  ) {
+    if (!currentCompany) throw new Error('Ingen virksomhed valgt')
+    const { error: updateErr } = await supabase
+      .from('vouchers')
+      .update(updates)
+      .eq('id', v.id)
+      .eq('company_id', currentCompany.id)
+    if (updateErr) throw new Error(updateErr.message)
+    setRows((prev) => prev.map((row) => (row.id === v.id ? { ...row, ...updates } : row)))
+    setPreview((prev) =>
+      prev && prev.voucher.id === v.id
+        ? { ...prev, voucher: { ...prev.voucher, ...updates } }
+        : prev,
+    )
+  }
+
   async function updateVoucherCategory(v: Voucher, category: string | null) {
     if (!currentCompany) return
     setAssigningCategoryId(v.id)
@@ -1189,7 +1213,9 @@ export function VouchersPage() {
         <VoucherPreviewModal
           voucher={preview.voucher}
           url={preview.url}
+          canEdit={canDeleteVoucher}
           onClose={() => setPreview(null)}
+          onSave={(updates) => updateVoucherDetails(preview.voucher, updates)}
         />
       ) : null}
       </AppPageLayout>
@@ -1197,15 +1223,55 @@ export function VouchersPage() {
   )
 }
 
+type VoucherEditableFields = Pick<
+  Voucher,
+  'title' | 'expense_date' | 'gross_cents' | 'vat_cents' | 'net_cents' | 'vat_rate'
+>
+
+function centsToKrInput(cents: number): string {
+  if (!cents) return ''
+  return (cents / 100).toFixed(2).replace('.', ',')
+}
+
+function parseKrToCents(input: string): number | null {
+  const trimmed = input.trim()
+  if (!trimmed) return 0
+  const normalized = trimmed.replace(/\./g, '').replace(',', '.')
+  const n = Number(normalized)
+  if (!Number.isFinite(n) || n < 0) return null
+  return Math.round(n * 100)
+}
+
 function VoucherPreviewModal({
   voucher,
   url,
+  canEdit,
   onClose,
+  onSave,
 }: {
   voucher: Voucher
   url: string
+  canEdit: boolean
   onClose: () => void
+  onSave: (updates: Partial<VoucherEditableFields>) => Promise<void>
 }) {
+  const [title, setTitle] = useState(voucher.title ?? '')
+  const [date, setDate] = useState(voucher.expense_date)
+  const [grossKr, setGrossKr] = useState(centsToKrInput(voucher.gross_cents))
+  const [vatKr, setVatKr] = useState(centsToKrInput(voucher.vat_cents))
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setTitle(voucher.title ?? '')
+    setDate(voucher.expense_date)
+    setGrossKr(centsToKrInput(voucher.gross_cents))
+    setVatKr(centsToKrInput(voucher.vat_cents))
+    setSaved(false)
+    setFormError(null)
+  }, [voucher.id, voucher.title, voucher.expense_date, voucher.gross_cents, voucher.vat_cents])
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
@@ -1217,6 +1283,53 @@ function VoucherPreviewModal({
   const mime = voucher.mime_type ?? ''
   const isImage =
     mime.startsWith('image/') || /\.(png|jpe?g|gif|webp|heic|heif)$/i.test(voucher.storage_path)
+
+  async function handleSave() {
+    setFormError(null)
+    if (!date) {
+      setFormError('Dato mangler')
+      return
+    }
+    const grossCents = parseKrToCents(grossKr)
+    const vatCents = parseKrToCents(vatKr)
+    if (grossCents === null) {
+      setFormError('Beløb er ugyldigt')
+      return
+    }
+    if (vatCents === null) {
+      setFormError('Moms er ugyldig')
+      return
+    }
+    if (vatCents > grossCents) {
+      setFormError('Moms kan ikke være højere end beløbet')
+      return
+    }
+    const netCents = grossCents - vatCents
+    const vatRate = netCents > 0 ? Math.round((vatCents / netCents) * 10000) / 100 : 0
+    setSaving(true)
+    try {
+      await onSave({
+        title: title.trim() ? title.trim() : null,
+        expense_date: date,
+        gross_cents: grossCents,
+        vat_cents: vatCents,
+        net_cents: netCents,
+        vat_rate: vatRate,
+      })
+      setSaved(true)
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : 'Kunne ikke gemme')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function onFieldChange<T>(setter: (v: T) => void) {
+    return (value: T) => {
+      setter(value)
+      setSaved(false)
+    }
+  }
 
   return (
     <div
@@ -1264,6 +1377,68 @@ function VoucherPreviewModal({
             </button>
           </div>
         </header>
+        {canEdit ? (
+          <section className="border-b border-slate-200 bg-white px-4 py-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+              <label className="block text-xs font-medium text-slate-600 sm:col-span-2">
+                Titel
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => onFieldChange(setTitle)(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+                  placeholder="Fx Cafébesøg"
+                />
+              </label>
+              <label className="block text-xs font-medium text-slate-600">
+                Dato
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => onFieldChange(setDate)(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+                />
+              </label>
+              <label className="block text-xs font-medium text-slate-600">
+                Beløb (kr)
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={grossKr}
+                  onChange={(e) => onFieldChange(setGrossKr)(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+                  placeholder="0,00"
+                />
+              </label>
+              <label className="block text-xs font-medium text-slate-600">
+                Moms (kr)
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={vatKr}
+                  onChange={(e) => onFieldChange(setVatKr)(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+                  placeholder="0,00"
+                />
+              </label>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
+              {formError ? (
+                <span className="text-xs font-medium text-rose-700">{formError}</span>
+              ) : saved ? (
+                <span className="text-xs font-medium text-emerald-700">Gemt</span>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void handleSave()}
+                disabled={saving}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? 'Gemmer…' : 'Gem ændringer'}
+              </button>
+            </div>
+          </section>
+        ) : null}
         <div className="flex-1 overflow-auto bg-slate-100">
           {isImage ? (
             <img
