@@ -297,14 +297,14 @@ export function VouchersPage() {
         if (parsed.expenseDateIso) {
           expenseDateForDb = parsed.expenseDateIso
         }
-        if (parsed.totalKr != null) {
+        if (parsed.totalKr != null && parsed.totalKr > 0) {
           grossKrForDb = parsed.totalKr.toFixed(2).replace('.', ',')
         } else {
           setOcrWarning(
             'Beløbet kunne ikke aflæses automatisk. Bilaget er uploadet — klik på det i listen og indtast beløbet manuelt.',
           )
         }
-        if (parsed.vatRateGuess !== null) {
+        if (parsed.vatRateGuess !== null && parsed.vatRateGuess >= 0 && parsed.vatRateGuess <= 100) {
           vatRateForDb = String(parsed.vatRateGuess)
         }
       } catch (e) {
@@ -317,12 +317,16 @@ export function VouchersPage() {
 
     setOcrProgress(null)
 
-    const grossCents = Math.round(
-      (parseFloat(grossKrForDb.replace(',', '.')) || 0) * 100,
+    const grossCents = Math.max(
+      0,
+      Math.round((parseFloat(grossKrForDb.replace(',', '.')) || 0) * 100),
     )
-    const rate = parseFloat(vatRateForDb.replace(',', '.')) || 0
+    const rate = Math.max(
+      0,
+      Math.min(100, parseFloat(vatRateForDb.replace(',', '.')) || 0),
+    )
     const netCents = rate > 0 ? Math.round(grossCents / (1 + rate / 100)) : grossCents
-    const vatCents = grossCents - netCents
+    const vatCents = Math.max(0, grossCents - netCents)
 
     const path = `${currentCompany.id}/${crypto.randomUUID()}-${file.name}`
     const { error: upErr } = await supabase.storage
@@ -1105,7 +1109,12 @@ export function VouchersPage() {
               filteredRows.map((v) => {
                 const reimbursement = reimbursementByVoucherId.get(v.id)
                 return (
-                <tr key={v.id} id={`voucher-row-${v.id}`} className="border-t border-slate-100">
+                <tr
+                  key={v.id}
+                  id={`voucher-row-${v.id}`}
+                  onClick={() => openSigned(v)}
+                  className="cursor-pointer border-t border-slate-100 transition hover:bg-indigo-50/40"
+                >
                   <td className="px-4 py-3 text-slate-600">
                     {v.expense_date
                       ? formatDateOnly(v.expense_date)
@@ -1116,7 +1125,11 @@ export function VouchersPage() {
                     <select
                       value={v.category ?? ''}
                       disabled={assigningCategoryId === v.id}
-                      onChange={(e) => void updateVoucherCategory(v, e.target.value || null)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        void updateVoucherCategory(v, e.target.value || null)
+                      }}
                       className="w-full min-w-40 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
                     >
                       <option value="">—</option>
@@ -1131,7 +1144,11 @@ export function VouchersPage() {
                     <select
                       value={v.voucher_project_id ?? ''}
                       disabled={!canUseVoucherProjects || projectFeatureUnavailable || assigningVoucherId === v.id}
-                      onChange={(e) => void updateVoucherProject(v, e.target.value || null)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        void updateVoucherProject(v, e.target.value || null)
+                      }}
                       className="w-full min-w-40 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
                     >
                       <option value="">—</option>
@@ -1150,12 +1167,14 @@ export function VouchersPage() {
                         </div>
                         <select
                           value={reimbursement.status}
-                          onChange={(e) =>
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            e.stopPropagation()
                             void updateReimbursementStatus(
                               reimbursement,
                               e.target.value as ReimbursementStatus,
                             )
-                          }
+                          }}
                           className="w-full min-w-44 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs"
                         >
                           {Object.entries(reimbursementStatusLabels).map(([value, label]) => (
@@ -1186,7 +1205,10 @@ export function VouchersPage() {
                       <button
                         type="button"
                         className="text-sm font-medium text-indigo-600 hover:underline"
-                        onClick={() => openSigned(v)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void openSigned(v)
+                        }}
                       >
                         Åbn
                       </button>
@@ -1195,7 +1217,10 @@ export function VouchersPage() {
                           type="button"
                           disabled={deletingId === v.id}
                           className="text-sm font-medium text-rose-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                          onClick={() => void deleteVoucher(v)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void deleteVoucher(v)
+                          }}
                         >
                           {deletingId === v.id ? 'Sletter…' : 'Slet'}
                         </button>
