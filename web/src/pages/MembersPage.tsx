@@ -15,6 +15,7 @@ type MemberRow = {
   created_at: string
   email?: string | null
   full_name?: string | null
+  last_active_at: string | null
 }
 
 type InviteRow = {
@@ -24,9 +25,34 @@ type InviteRow = {
   created_at: string
 }
 
+const INACTIVE_DAYS = 30
+
+function activityStatus(lastActiveAt: string | null): {
+  label: string
+  className: string
+} {
+  if (!lastActiveAt) {
+    return {
+      label: 'Ingen aktivitet endnu',
+      className: 'bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200',
+    }
+  }
+  const diffDays = Math.floor((Date.now() - new Date(lastActiveAt).getTime()) / 86400000)
+  if (diffDays <= INACTIVE_DAYS) {
+    return {
+      label: 'Aktiv',
+      className: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-100',
+    }
+  }
+  return {
+    label: 'Inaktiv',
+    className: 'bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-100',
+  }
+}
+
 const ROLES: CompanyRole[] = ['owner', 'manager', 'bookkeeper', 'accountant']
 
-type MemberSortKey = 'name' | 'role' | 'added'
+type MemberSortKey = 'name' | 'role' | 'added' | 'last_active'
 type InviteSortKey = 'email' | 'role' | 'sent'
 
 function sortMembers(list: MemberRow[], key: MemberSortKey, dir: ColumnSortDir): MemberRow[] {
@@ -42,6 +68,8 @@ function sortMembers(list: MemberRow[], key: MemberSortKey, dir: ColumnSortDir):
         return mul * String(a.role).localeCompare(String(b.role))
       case 'added':
         return mul * String(a.created_at).localeCompare(String(b.created_at))
+      case 'last_active':
+        return mul * String(a.last_active_at ?? '').localeCompare(String(b.last_active_at ?? ''))
       default:
         return 0
     }
