@@ -116,6 +116,8 @@ export function VouchersPage() {
   const [expenseLinkMode, setExpenseLinkMode] = useState<ExpenseLinkMode>('single_use')
   const [creatingExpenseLink, setCreatingExpenseLink] = useState(false)
   const [expenseLink, setExpenseLink] = useState<string | null>(null)
+  const [expenseLinkModalOpen, setExpenseLinkModalOpen] = useState(false)
+  const [expenseLinkCopied, setExpenseLinkCopied] = useState(false)
   const [projectOverviewOpen, setProjectOverviewOpen] = useState(false)
   const [preview, setPreview] = useState<{ voucher: Voucher; url: string } | null>(null)
 
@@ -443,6 +445,7 @@ export function VouchersPage() {
   async function copyExpenseLink() {
     if (!expenseLink) return
     await navigator.clipboard?.writeText(expenseLink)
+    setExpenseLinkCopied(true)
   }
 
   async function updateReimbursementStatus(reimbursement: Reimbursement, status: ReimbursementStatus) {
@@ -693,27 +696,20 @@ export function VouchersPage() {
               onChange={(e) => void onFile(e)}
             />
           </label>
-          <div className="flex min-h-[44px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <select
-              value={expenseLinkMode}
-              onChange={(e) => setExpenseLinkMode(e.target.value as ExpenseLinkMode)}
-              disabled={!canUseExpenseLinks}
-              className="min-h-[44px] border-0 bg-white px-3 text-sm text-slate-900 focus:outline-none"
-              aria-label="Udlægslink type"
-            >
-              <option value="single_use">1 upload</option>
-              <option value="time_window">1 time</option>
-            </select>
-            <button
-              type="button"
-              disabled={creatingExpenseLink || !canUseExpenseLinks}
-              onClick={() => void createExpenseUploadLink()}
-              className="inline-flex min-h-[44px] items-center justify-center border-l border-slate-200 bg-white px-4 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-70"
-              title={!canUseExpenseLinks ? 'Udlægslink er ikke aktivt i den nuværende plan' : undefined}
-            >
-              {creatingExpenseLink ? 'Opretter…' : 'Udlægslink'}
-            </button>
-          </div>
+          <button
+            type="button"
+            disabled={!canUseExpenseLinks}
+            onClick={() => {
+              setExpenseLink(null)
+              setExpenseLinkCopied(false)
+              setExpenseLinkMode('single_use')
+              setExpenseLinkModalOpen(true)
+            }}
+            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50 disabled:opacity-60"
+            title={!canUseExpenseLinks ? 'Udlægslink er ikke aktivt i den nuværende plan' : undefined}
+          >
+            Udlægslink
+          </button>
         </div>
       </div>
 
@@ -724,28 +720,6 @@ export function VouchersPage() {
       ) : null}
 
       {error ? <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p> : null}
-
-      {expenseLink ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <span className="shrink-0 text-sm font-semibold text-emerald-950">
-              Udlægslink klar
-            </span>
-            <input
-              readOnly
-              value={expenseLink}
-              className="min-w-0 flex-1 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-900"
-            />
-            <button
-              type="button"
-              onClick={() => void copyExpenseLink()}
-              className="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
-            >
-              Kopiér
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       <div className="flex flex-wrap items-end justify-between gap-3 border-t border-slate-200 pt-2">
         <h2 className="text-base font-semibold text-slate-900">Dine bilag</h2>
@@ -1248,6 +1222,114 @@ export function VouchersPage() {
           onClose={() => setPreview(null)}
           onSave={(updates) => updateVoucherDetails(preview.voucher, updates)}
         />
+      ) : null}
+      {expenseLinkModalOpen ? (
+        <div
+          role="dialog"
+          aria-modal
+          onClick={() => setExpenseLinkModalOpen(false)}
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/60 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Opret udlægslink</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Vælg hvor længe linket skal virke. Modtageren kan uploade bilag uden konto.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExpenseLinkModalOpen(false)}
+                aria-label="Luk"
+                className="rounded-full p-1 text-slate-500 hover:bg-slate-100"
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {([
+                { value: 'single_use', label: '1 upload', sub: 'Linket kan kun bruges én gang' },
+                { value: 'time_window', label: '1 time', sub: 'Ubegrænset uploads i 1 time' },
+              ] as Array<{ value: ExpenseLinkMode; label: string; sub: string }>).map((opt) => {
+                const active = expenseLinkMode === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setExpenseLinkMode(opt.value)}
+                    className={
+                      'flex flex-col items-start rounded-xl border p-3 text-left transition ' +
+                      (active
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300')
+                    }
+                  >
+                    <span className="text-sm font-semibold">{opt.label}</span>
+                    <span className="mt-1 text-xs text-slate-500">{opt.sub}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {error ? (
+              <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                {error}
+              </p>
+            ) : null}
+
+            {expenseLink ? (
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                <p className="text-sm font-semibold text-emerald-950">Udlægslink klar</p>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <input
+                    readOnly
+                    value={expenseLink}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="min-w-0 flex-1 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void copyExpenseLink()}
+                    className="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
+                  >
+                    {expenseLinkCopied ? 'Kopieret' : 'Kopiér'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setExpenseLinkModalOpen(false)}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                {expenseLink ? 'Luk' : 'Annuller'}
+              </button>
+              {!expenseLink ? (
+                <button
+                  type="button"
+                  disabled={creatingExpenseLink || !canUseExpenseLinks}
+                  onClick={() => {
+                    setExpenseLinkCopied(false)
+                    void createExpenseUploadLink()
+                  }}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+                >
+                  {creatingExpenseLink ? 'Opretter…' : 'Opret link'}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
       ) : null}
       </AppPageLayout>
     </div>

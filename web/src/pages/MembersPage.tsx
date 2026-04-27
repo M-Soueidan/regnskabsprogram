@@ -163,7 +163,7 @@ export function MembersPage() {
     const [membersRes, invitesRes, activityRes] = await Promise.all([
       supabase
         .from('company_members')
-        .select('id, user_id, role, created_at, profiles(full_name)')
+        .select('id, user_id, role, created_at')
         .eq('company_id', currentCompany.id),
       canManage
         ? supabase
@@ -193,20 +193,32 @@ export function MembersPage() {
       }
     }
 
-    const rawMembers = (membersRes.data ?? []) as unknown as Array<{
+    const rawMembers = (membersRes.data ?? []) as Array<{
       id: string
       user_id: string
       role: CompanyRole
       created_at: string
-      profiles: { full_name: string | null } | null
     }>
+
+    const userIds = rawMembers.map((m) => m.user_id)
+    const namesByUser = new Map<string, string | null>()
+    if (userIds.length > 0) {
+      const { data: profileRows } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds)
+      for (const p of (profileRows ?? []) as Array<{ id: string; full_name: string | null }>) {
+        namesByUser.set(p.id, p.full_name)
+      }
+    }
+
     setMembers(
       rawMembers.map((m) => ({
         id: m.id,
         user_id: m.user_id,
         role: m.role,
         created_at: m.created_at,
-        full_name: m.profiles?.full_name ?? null,
+        full_name: namesByUser.get(m.user_id) ?? null,
         last_active_at: lastActiveByUser.get(m.user_id) ?? null,
       })),
     )
