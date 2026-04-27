@@ -675,10 +675,11 @@ export function VouchersPage() {
           </Link>
           <label
             className={
-              'inline-flex min-h-[44px] cursor-pointer items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 ' +
+              'inline-flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 ' +
               (uploading ? 'pointer-events-none opacity-60' : '')
             }
           >
+            {uploading ? <ButtonSpinner /> : null}
             {uploading
               ? ocrProgress != null
                 ? `Læser… ${ocrProgress}%`
@@ -1165,6 +1166,11 @@ export function VouchersPage() {
                         <div className="text-sm font-medium text-slate-900">
                           {reimbursement.requester_name}
                         </div>
+                        <div className="text-xs text-slate-600">
+                          {reimbursement.bank_reg_number || reimbursement.bank_account_number
+                            ? `Reg. ${reimbursement.bank_reg_number ?? '—'} / Konto ${reimbursement.bank_account_number ?? '—'}`
+                            : 'Ingen konto angivet'}
+                        </div>
                         <select
                           value={reimbursement.status}
                           onClick={(e) => e.stopPropagation()}
@@ -1285,7 +1291,6 @@ function VoucherPreviewModal({
   const [grossKr, setGrossKr] = useState(centsToKrInput(voucher.gross_cents))
   const [vatKr, setVatKr] = useState(centsToKrInput(voucher.vat_cents))
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -1293,7 +1298,6 @@ function VoucherPreviewModal({
     setDate(voucher.expense_date)
     setGrossKr(centsToKrInput(voucher.gross_cents))
     setVatKr(centsToKrInput(voucher.vat_cents))
-    setSaved(false)
     setFormError(null)
   }, [voucher.id, voucher.title, voucher.expense_date, voucher.gross_cents, voucher.vat_cents])
 
@@ -1341,18 +1345,11 @@ function VoucherPreviewModal({
         net_cents: netCents,
         vat_rate: vatRate,
       })
-      setSaved(true)
+      onClose()
     } catch (e) {
       setFormError(e instanceof Error ? e.message : 'Kunne ikke gemme')
     } finally {
       setSaving(false)
-    }
-  }
-
-  function onFieldChange<T>(setter: (v: T) => void) {
-    return (value: T) => {
-      setter(value)
-      setSaved(false)
     }
   }
 
@@ -1410,7 +1407,7 @@ function VoucherPreviewModal({
                 <input
                   type="text"
                   value={title}
-                  onChange={(e) => onFieldChange(setTitle)(e.target.value)}
+                  onChange={(e) => setTitle(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
                   placeholder="Fx Cafébesøg"
                 />
@@ -1420,7 +1417,7 @@ function VoucherPreviewModal({
                 <input
                   type="date"
                   value={date}
-                  onChange={(e) => onFieldChange(setDate)(e.target.value)}
+                  onChange={(e) => setDate(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
                 />
               </label>
@@ -1430,7 +1427,7 @@ function VoucherPreviewModal({
                   type="text"
                   inputMode="decimal"
                   value={grossKr}
-                  onChange={(e) => onFieldChange(setGrossKr)(e.target.value)}
+                  onChange={(e) => setGrossKr(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
                   placeholder="0,00"
                 />
@@ -1441,7 +1438,7 @@ function VoucherPreviewModal({
                   type="text"
                   inputMode="decimal"
                   value={vatKr}
-                  onChange={(e) => onFieldChange(setVatKr)(e.target.value)}
+                  onChange={(e) => setVatKr(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
                   placeholder="0,00"
                 />
@@ -1450,8 +1447,6 @@ function VoucherPreviewModal({
             <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
               {formError ? (
                 <span className="text-xs font-medium text-rose-700">{formError}</span>
-              ) : saved ? (
-                <span className="text-xs font-medium text-emerald-700">Gemt</span>
               ) : null}
               <button
                 type="button"
