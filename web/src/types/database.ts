@@ -8,6 +8,14 @@ export type Json =
 
 export type CompanyRole = 'owner' | 'manager' | 'bookkeeper' | 'accountant'
 
+export type IncomeKind =
+  | 'kommunalt_tilskud'
+  | 'fondsbevilling'
+  | 'medlemskontingent'
+  | 'donation'
+  | 'event'
+  | 'andet'
+
 export interface Database {
   public: {
     Tables: {
@@ -550,6 +558,44 @@ export interface Database {
           description?: string | null
           budget_cents?: number | null
           active?: boolean
+          updated_at?: string
+        }
+      }
+      income_entries: {
+        Row: {
+          id: string
+          company_id: string
+          entry_date: string
+          amount_cents: number
+          kind: IncomeKind
+          source_name: string
+          earmarking: string | null
+          voucher_project_id: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          entry_date?: string
+          amount_cents: number
+          kind: IncomeKind
+          source_name: string
+          earmarking?: string | null
+          voucher_project_id?: string | null
+          notes?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          entry_date?: string
+          amount_cents?: number
+          kind?: IncomeKind
+          source_name?: string
+          earmarking?: string | null
+          voucher_project_id?: string | null
+          notes?: string | null
           updated_at?: string
         }
       }

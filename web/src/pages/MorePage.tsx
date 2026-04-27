@@ -129,12 +129,30 @@ function ListIcon({ className }: IconProps) {
   )
 }
 
-const items = [
+function CoinIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <ellipse cx="12" cy="6" rx="8" ry="3" />
+      <path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6" />
+      <path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+    </svg>
+  )
+}
+
+type MoreItem = {
+  to: string
+  label: string
+  icon: (p: { className?: string }) => JSX.Element
+  onlyFor?: 'virksomhed' | 'forening'
+}
+
+const items: MoreItem[] = [
   { to: '/app/support', label: 'Support', icon: ChatIcon },
   { to: '/app/hjaelp', label: 'Hjælp & svar', icon: HelpIcon },
   { to: '/app/activity', label: 'Aktivitetslog', icon: ListIcon },
   { to: '/app/bank', label: 'Bank', icon: BankIcon },
-  { to: '/app/vat', label: 'Moms', icon: PercentIcon },
+  { to: '/app/income', label: 'Indtægter', icon: CoinIcon, onlyFor: 'forening' },
+  { to: '/app/vat', label: 'Moms', icon: PercentIcon, onlyFor: 'virksomhed' },
   { to: '/app/members', label: 'Medlemmer', icon: UsersIcon },
   { to: '/app/settings', label: 'Indstillinger', icon: CogIcon },
 ]
@@ -267,7 +285,11 @@ export function MorePage() {
         ) : null}
 
         <ul className="divide-y divide-slate-100">
-          {items.map((i) => (
+          {items
+            .filter(
+              (i) => !i.onlyFor || i.onlyFor === (currentCompany?.entity_type ?? 'virksomhed'),
+            )
+            .map((i) => (
             <li key={i.to}>
               <Link
                 to={i.to}

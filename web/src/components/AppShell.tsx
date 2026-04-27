@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { useApp, subscriptionOk } from '@/context/AppProvider'
@@ -25,12 +25,21 @@ import { trialStatusFor } from '@/lib/trial'
 
 type NavIconProps = { className?: string }
 
-const nav = [
+type NavItem = {
+  to: string
+  label: string
+  icon: (p: NavIconProps) => JSX.Element
+  /** Hvis sat, vises kun for denne entity_type. */
+  onlyFor?: 'virksomhed' | 'forening'
+}
+
+const nav: NavItem[] = [
   { to: '/app/dashboard', label: 'Oversigt', icon: HomeIcon },
   { to: '/app/invoices', label: 'Fakturaer', icon: InvoiceIcon },
+  { to: '/app/income', label: 'Indtægter', icon: CoinIcon, onlyFor: 'forening' },
   { to: '/app/vouchers', label: 'Bilag', icon: ReceiptIcon },
   { to: '/app/bank', label: 'Bank', icon: BankIcon },
-  { to: '/app/vat', label: 'Moms', icon: PercentIcon },
+  { to: '/app/vat', label: 'Moms', icon: PercentIcon, onlyFor: 'virksomhed' },
   { to: '/app/hjaelp', label: 'Hjælp & svar', icon: HelpIcon },
   { to: '/app/members', label: 'Medlemmer', icon: UsersIcon },
   { to: '/app/settings', label: 'Indstillinger', icon: CogIcon },
@@ -131,6 +140,16 @@ function PercentIcon({ className }: NavIconProps) {
   )
 }
 
+function CoinIcon({ className }: NavIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <ellipse cx="12" cy="6" rx="8" ry="3" />
+      <path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6" />
+      <path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+    </svg>
+  )
+}
+
 function UsersIcon({ className }: NavIconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -203,6 +222,11 @@ export function AppShell({ children }: { children?: ReactNode }) {
     if (settingsActive) setSettingsOpen(true)
   }, [settingsActive])
 
+  const visibleNav = useMemo(() => {
+    const entityType = currentCompany?.entity_type ?? 'virksomhed'
+    return nav.filter((item) => !item.onlyFor || item.onlyFor === entityType)
+  }, [currentCompany?.entity_type])
+
   async function logout() {
     await logoutToLanding(navigate)
   }
@@ -235,7 +259,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </div>
         </div>
         <nav className="flex flex-1 flex-col gap-0.5 p-3">
-          {nav.map((item) => {
+          {visibleNav.map((item) => {
             if (item.to === '/app/settings') {
               return (
                 <div key={item.to} className="space-y-1">
