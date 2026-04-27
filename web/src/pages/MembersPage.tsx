@@ -150,7 +150,7 @@ export function MembersPage() {
   const load = useCallback(async () => {
     if (!currentCompany) return
     setLoading(true)
-    const [membersRes, invitesRes] = await Promise.all([
+    const [membersRes, invitesRes, activityRes] = await Promise.all([
       supabase
         .from('company_members')
         .select('id, user_id, role, created_at, profiles:profiles!inner(full_name)')
@@ -162,7 +162,26 @@ export function MembersPage() {
             .eq('company_id', currentCompany.id)
             .order('created_at', { ascending: false })
         : Promise.resolve({ data: [] as InviteRow[], error: null }),
+      supabase
+        .from('activity_events')
+        .select('actor_id, created_at')
+        .eq('company_id', currentCompany.id)
+        .not('actor_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1000),
     ])
+
+    const lastActiveByUser = new Map<string, string>()
+    for (const row of (activityRes.data ?? []) as Array<{
+      actor_id: string | null
+      created_at: string
+    }>) {
+      if (!row.actor_id) continue
+      const prev = lastActiveByUser.get(row.actor_id)
+      if (!prev || row.created_at > prev) {
+        lastActiveByUser.set(row.actor_id, row.created_at)
+      }
+    }
 
     const rawMembers = (membersRes.data ?? []) as unknown as Array<{
       id: string
@@ -178,6 +197,7 @@ export function MembersPage() {
         role: m.role,
         created_at: m.created_at,
         full_name: m.profiles?.full_name ?? null,
+        last_active_at: lastActiveByUser.get(m.user_id) ?? null,
       })),
     )
     setInvites((invitesRes.data ?? []) as InviteRow[])
@@ -292,6 +312,47 @@ export function MembersPage() {
         </p>
       </div>
 
+      {!loading ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatCard
+            label="Aktive"
+            sublabel={`Aktivitet sidste ${INACTIVE_DAYS} dage`}
+            value={
+              members.filter(
+                (m) =>
+                  m.last_active_at &&
+                  Date.now() - new Date(m.last_active_at).getTime() <= INACTIVE_DAYS * 86400000,
+              ).length
+            }
+            tone="emerald"
+          />
+          <StatCard
+            label="Inaktive"
+            sublabel={`Sidst set for over ${INACTIVE_DAYS} dage siden`}
+            value={
+              members.filter(
+                (m) =>
+                  m.last_active_at &&
+                  Date.now() - new Date(m.last_active_at).getTime() > INACTIVE_DAYS * 86400000,
+              ).length
+            }
+            tone="amber"
+          />
+          <StatCard
+            label="Ikke logget aktivitet"
+            sublabel="Tilmeldt, men ikke brugt platformen"
+            value={members.filter((m) => !m.last_active_at).length}
+            tone="slate"
+          />
+          <StatCard
+            label="Afventer registrering"
+            sublabel="Inviteret, ikke tilmeldt endnu"
+            value={invites.length}
+            tone="indigo"
+          />
+        </div>
+      ) : null}
+
       {error ? (
         <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p>
       ) : null}
@@ -328,6 +389,12 @@ export function MembersPage() {
                     direction={memberSortKey === 'added' ? memberSortDir : null}
                     onClick={() => onMemberSort('added')}
                   />
+                  <SortableTh
+                    label="Sidste aktivitet"
+                    isActive={memberSortKey === 'last_active'}
+                    direction={memberSortKey === 'last_active' ? memberSortDir : null}
+                    onClick={() => onMemberSort('last_active')}
+                  />
                   <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500">
                     Handling
                   </th>
@@ -336,6 +403,7 @@ export function MembersPage() {
               <tbody className="divide-y divide-slate-100">
                 {sortedMembers.map((m) => {
                   const isSelf = m.user_id === user?.id
+                  const status = activityStatus(m.last_active_at)
                   return (
                     <tr key={m.id} className="align-top">
                       <td className="px-4 py-3">
@@ -365,6 +433,20 @@ export function MembersPage() {
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">
                         {formatDateTime(m.created_at)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${status.className}`}
+                          >
+                            {status.label}
+                          </span>
+                          {m.last_active_at ? (
+                            <span className="text-xs text-slate-500">
+                              {formatDateTime(m.last_active_at)}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right">
                         {canManage && !isSelf ? (
@@ -487,5 +569,33 @@ export function MembersPage() {
         </>
       ) : null}
     </AppPageLayout>
+  )
+}
+
+function StatCard({
+  label,
+  sublabel,
+  value,
+  tone,
+}: {
+  label: string
+  sublabel: string
+  value: number
+  tone: 'emerald' | 'amber' | 'slate' | 'indigo'
+}) {
+  const valueClass =
+    tone === 'emerald'
+      ? 'text-emerald-700'
+      : tone === 'amber'
+        ? 'text-amber-700'
+        : tone === 'indigo'
+          ? 'text-indigo-700'
+          : 'text-slate-700'
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-1 text-2xl font-bold tabular-nums ${valueClass}`}>{value}</p>
+      <p className="mt-1 text-xs text-slate-500">{sublabel}</p>
+    </div>
   )
 }
