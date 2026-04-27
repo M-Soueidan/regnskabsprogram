@@ -150,10 +150,20 @@ export function MembersPage() {
   const load = useCallback(async () => {
     if (!currentCompany) return
     setLoading(true)
+
+    // Claim eventuelle invitationer på min email (fanger brugere der havde konto før de blev inviteret).
+    // Fjern stale invitationer (email matcher allerede et company_member i firmaet) — kun for owners.
+    await Promise.allSettled([
+      supabase.rpc('claim_my_pending_invites'),
+      canManage
+        ? supabase.rpc('prune_stale_invites_for', { p_company_id: currentCompany.id })
+        : Promise.resolve(),
+    ])
+
     const [membersRes, invitesRes, activityRes] = await Promise.all([
       supabase
         .from('company_members')
-        .select('id, user_id, role, created_at, profiles:profiles!inner(full_name)')
+        .select('id, user_id, role, created_at, profiles(full_name)')
         .eq('company_id', currentCompany.id),
       canManage
         ? supabase
