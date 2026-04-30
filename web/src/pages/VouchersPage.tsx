@@ -855,15 +855,16 @@ export function VouchersPage() {
               Moms {formatDkk(voucherTotals.vat)}{hasMore ? '+' : ''}
             </span>
           ) : null}
-        {projectTotals.length > 0 ? (
-          <button
-            type="button"
-            onClick={() => setProjectOverviewOpen((open) => !open)}
-            className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Event-overblik
-          </button>
-        ) : null}
+          {projectTotals.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setProjectOverviewOpen((open) => !open)}
+              className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Event-overblik
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {projectFeatureUnavailable ? (
