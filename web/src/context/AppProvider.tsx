@@ -14,6 +14,7 @@ import type { CompanyRole, Database } from '@/types/database'
 import { trialStatusFor } from '@/lib/trial'
 import type { BillingEntitlement, BillingFeatureKey } from '@/lib/billingEntitlements'
 import { canUseFeature, getFeatureLimit } from '@/lib/billingEntitlements'
+import { getOrCreateDeviceId } from '@/lib/trustedDevice'
 
 type Company = Database['public']['Tables']['companies']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -111,8 +112,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Tjek om sessionen kun er aal1 men brugeren har en aal2-faktor (TOTP).
     const aalRes = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-    const needsUpgrade =
+    let needsUpgrade =
       !!aalRes.data && aalRes.data.currentLevel !== aalRes.data.nextLevel
+    if (needsUpgrade) {
+      // "Husk denne enhed": hvis vi har et gyldigt trusted-device record, skip 2FA-prompt.
+      const deviceId = getOrCreateDeviceId()
+      const { data: trusted } = await supabase
+        .from('mfa_trusted_devices')
+        .select('id')
+        .eq('user_id', s.user.id)
+        .eq('device_id', deviceId)
+        .gt('expires_at', new Date().toISOString())
+        .limit(1)
+      if (trusted && trusted.length > 0) {
+        needsUpgrade = false
+      }
+    }
     setAalNeedsUpgrade(needsUpgrade)
     if (needsUpgrade) {
       // Stop her — ProtectedRoute viderestiller til /login/2fa.
