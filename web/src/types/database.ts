@@ -37,6 +37,26 @@ export interface Database {
           current_company_id?: string | null
         }
       }
+      mfa_trusted_devices: {
+        Row: {
+          id: string
+          user_id: string
+          device_id: string
+          user_agent: string | null
+          created_at: string
+          expires_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          device_id: string
+          user_agent?: string | null
+          expires_at: string
+        }
+        Update: {
+          expires_at?: string
+        }
+      }
       companies: {
         Row: {
           id: string

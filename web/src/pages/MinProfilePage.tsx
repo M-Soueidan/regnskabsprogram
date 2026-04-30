@@ -285,6 +285,14 @@ function TwoFactorSection() {
     if (!window.confirm('Er du sikker på at du vil deaktivere 2-trins login?')) return
     setDisabling(id)
     const { error } = await supabase.auth.mfa.unenroll({ factorId: id })
+    if (!error) {
+      // Ryd huskede enheder så de ikke ligger som døde rækker.
+      const { data: sessionData } = await supabase.auth.getSession()
+      const uid = sessionData.session?.user?.id
+      if (uid) {
+        await supabase.from('mfa_trusted_devices').delete().eq('user_id', uid)
+      }
+    }
     setDisabling(null)
     if (error) {
       setVerifyError(error.message)

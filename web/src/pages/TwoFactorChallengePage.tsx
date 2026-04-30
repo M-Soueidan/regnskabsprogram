@@ -4,6 +4,11 @@ import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppProvider'
 import { BrandMark } from '@/components/BrandMark'
 import { logoutToLanding } from '@/lib/logoutToLanding'
+import {
+  getOrCreateDeviceId,
+  trustedDeviceExpiry,
+  TRUSTED_DEVICE_TTL_DAYS,
+} from '@/lib/trustedDevice'
 
 export function TwoFactorChallengePage() {
   const { session, aalNeedsUpgrade, refresh } = useApp()
@@ -13,6 +18,7 @@ export function TwoFactorChallengePage() {
   const [code, setCode] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [verifyError, setVerifyError] = useState<string | null>(null)
+  const [rememberDevice, setRememberDevice] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -69,6 +75,20 @@ export function TwoFactorChallengePage() {
       setCode('')
       return
     }
+    if (rememberDevice && session?.user?.id) {
+      const deviceId = getOrCreateDeviceId()
+      await supabase
+        .from('mfa_trusted_devices')
+        .upsert(
+          {
+            user_id: session.user.id,
+            device_id: deviceId,
+            user_agent: navigator.userAgent.slice(0, 250),
+            expires_at: trustedDeviceExpiry(),
+          },
+          { onConflict: 'user_id,device_id' },
+        )
+    }
     await refresh()
     navigate('/home', { replace: true })
   }
@@ -115,6 +135,20 @@ export function TwoFactorChallengePage() {
               {verifyError}
             </p>
           ) : null}
+          <label className="flex items-start gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={rememberDevice}
+              onChange={(e) => setRememberDevice(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span>
+              Husk denne enhed i {TRUSTED_DEVICE_TTL_DAYS} dage
+              <span className="block text-xs text-slate-500">
+                Vi springer 2-trins prompten over indtil udløb. Brug ikke på offentlige enheder.
+              </span>
+            </span>
+          </label>
           <button
             type="submit"
             disabled={verifying || !factorId || code.length !== 6}
