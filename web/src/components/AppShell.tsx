@@ -281,7 +281,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
     <div className="flex min-h-screen bg-slate-50">
       <RegisterPushNotifications />
       <PwaPushPrompt />
-      <aside className="hidden w-56 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
+      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col self-start border-r border-slate-200 bg-white md:flex">
         <div className="border-b border-slate-100 px-4 py-5">
           <div className="flex items-center gap-3">
             <BrandMark />
@@ -295,7 +295,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
             </div>
           </div>
         </div>
-        <nav className="flex flex-1 flex-col gap-0.5 p-3">
+        <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3">
           {visibleNav.map((item) => {
             if (item.to === '/app/settings') {
               return (
