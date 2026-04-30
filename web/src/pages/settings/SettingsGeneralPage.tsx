@@ -121,43 +121,36 @@ export function SettingsGeneralPage() {
           <p className="mt-1 text-xs text-slate-500">
             Styrer fx om moms-fanen vises og hvilke indtægts-typer (tilskud, bevillinger, kontingent) der er tilgængelige.
           </p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <label
-              className={
-                'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ' +
-                (entityType === 'virksomhed'
-                  ? 'border-indigo-300 bg-indigo-50 text-indigo-950 ring-1 ring-indigo-200'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')
-              }
-            >
-              <input
-                type="radio"
-                name="entity_type"
-                value="virksomhed"
-                checked={entityType === 'virksomhed'}
-                onChange={() => setEntityType('virksomhed')}
-                className="h-4 w-4 text-indigo-600"
-              />
-              <span className="font-medium">Virksomhed</span>
-            </label>
-            <label
-              className={
-                'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ' +
-                (entityType === 'forening'
-                  ? 'border-indigo-300 bg-indigo-50 text-indigo-950 ring-1 ring-indigo-200'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')
-              }
-            >
-              <input
-                type="radio"
-                name="entity_type"
-                value="forening"
-                checked={entityType === 'forening'}
-                onChange={() => setEntityType('forening')}
-                className="h-4 w-4 text-indigo-600"
-              />
-              <span className="font-medium">Forening</span>
-            </label>
+          <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Type">
+            {(['virksomhed', 'forening'] as const).map((opt) => {
+              const selected = entityType === opt
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setEntityType(opt)}
+                  className={
+                    'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition ' +
+                    (selected
+                      ? 'border-indigo-300 bg-indigo-50 text-indigo-950 ring-1 ring-indigo-200'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')
+                  }
+                >
+                  <span
+                    aria-hidden
+                    className={
+                      'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ' +
+                      (selected ? 'border-indigo-600' : 'border-slate-300')
+                    }
+                  >
+                    {selected ? <span className="h-2 w-2 rounded-full bg-indigo-600" /> : null}
+                  </span>
+                  <span className="font-medium">{opt === 'virksomhed' ? 'Virksomhed' : 'Forening'}</span>
+                </button>
+              )
+            })}
           </div>
         </fieldset>
         <div>
