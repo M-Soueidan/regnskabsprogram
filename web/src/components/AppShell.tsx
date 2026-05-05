@@ -11,10 +11,6 @@ import { logoutToLanding } from '@/lib/logoutToLanding'
 import { supabase } from '@/lib/supabase'
 import { BrandMark } from '@/components/BrandMark'
 import { formatDateTime } from '@/lib/format'
-import {
-  getHideTrialBannerDuringTrial,
-  setHideTrialBannerDuringTrial,
-} from '@/lib/trialPaymentUiPreference'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
 import { RegisterPushNotifications } from '@/components/RegisterPushNotifications'
 import { PwaPushPrompt } from '@/components/PwaPushPrompt'
@@ -483,18 +479,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
         {(() => {
           if (!currentCompany) return null
           const trial = trialStatusFor(currentCompany)
-          // Aktiv Stripe-subscription → ingen banner.
-          if (ok) {
-            if (subscription?.status === 'trialing') {
-              return (
-                <TrialBanner
-                  periodEnd={subscription.current_period_end}
-                  companyId={currentCompany.id}
-                />
-              )
-            }
-            return null
-          }
+          // Aktiv Stripe-subscription (active eller trialing) → kortet er tilføjet,
+          // intet banner. Trial-status fremgår på Indstillinger → Abonnement.
+          if (ok) return null
           // Ingen subscription men custom-trial stadig aktiv → vis nedtælling de sidste dage.
           if (trial?.active) {
             return <TrialCountdownBanner company={currentCompany} />
@@ -549,73 +536,3 @@ export function AppShell({ children }: { children?: ReactNode }) {
   )
 }
 
-function TrialBanner({
-  periodEnd,
-  companyId,
-}: {
-  periodEnd: string | null
-  companyId: string
-}) {
-  const [, setPrefTick] = useState(0)
-  const [daysLeft, setDaysLeft] = useState<number | null>(null)
-  const checkout = useStripeCheckoutLauncher()
-
-  useEffect(() => {
-    const bump = () => setPrefTick((n) => n + 1)
-    window.addEventListener('storage', bump)
-    window.addEventListener('bilago:trial-banner-pref', bump)
-    return () => {
-      window.removeEventListener('storage', bump)
-      window.removeEventListener('bilago:trial-banner-pref', bump)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!periodEnd) {
-      queueMicrotask(() => setDaysLeft(null))
-      return
-    }
-    const compute = () =>
-      Math.max(0, Math.ceil((new Date(periodEnd).getTime() - Date.now()) / 86_400_000))
-    queueMicrotask(() => setDaysLeft(compute()))
-    const id = window.setInterval(() => setDaysLeft(compute()), 60_000)
-    return () => window.clearInterval(id)
-  }, [periodEnd])
-
-  /** Under sidste dag (0 tilbage) eller ukendt slutdato: banner vises altid. */
-  const canDismissBanner = daysLeft !== null && daysLeft > 0
-  const bannerHiddenByPref =
-    getHideTrialBannerDuringTrial() && canDismissBanner
-
-  if (bannerHiddenByPref) return null
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-100 bg-indigo-50 px-5 py-4 text-sm text-indigo-900 md:px-10 md:py-4">
-      <span className="min-w-0 flex-1">
-        Gratis prøveperiode
-        {daysLeft !== null ? ` — ${daysLeft} ${daysLeft === 1 ? 'dag' : 'dage'} tilbage` : null}
-        . Tilføj betaling for at fortsætte efter perioden slutter.
-      </span>
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-        {canDismissBanner ? (
-          <button
-            type="button"
-            className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-800 hover:bg-indigo-100/80"
-            onClick={() => setHideTrialBannerDuringTrial(true)}
-          >
-            Skjul banner
-          </button>
-        ) : null}
-        <button
-          type="button"
-          disabled={checkout.loading}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-80"
-          onClick={() => void checkout.launch(companyId)}
-        >
-          {checkout.loading ? <ButtonSpinner /> : null}
-          {checkout.loading ? 'Åbner Stripe…' : 'Tilføj betaling'}
-        </button>
-      </div>
-    </div>
-  )
-}
