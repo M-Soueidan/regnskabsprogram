@@ -90,9 +90,23 @@ serve(async (req) => {
 
     const { data: company } = await admin
       .from('companies')
-      .select('name')
+      .select('name, created_at')
       .eq('id', companyId)
       .single()
+
+    // Custom 30-dages prøveperiode uden kortkrav (jf. web/src/lib/trial.ts).
+    // Når kunden tilføjer kort midt i prøveperioden, må Stripe ikke trække med
+    // det samme — vi sætter trial_end til virksomhedens trial-udløb, så første
+    // træk først sker når Bilago-prøveperioden alligevel ville være slut.
+    const TRIAL_DAYS = 30
+    const trialEndUnix = (() => {
+      if (!company?.created_at) return null
+      const startMs = new Date(company.created_at).getTime()
+      if (!Number.isFinite(startMs)) return null
+      const endMs = startMs + TRIAL_DAYS * 86_400_000
+      if (endMs <= Date.now()) return null
+      return Math.floor(endMs / 1000)
+    })()
 
     const { data: subRow } = await admin
       .from('subscriptions')
@@ -215,6 +229,7 @@ serve(async (req) => {
       cancel_url: `${afterStripeBase}?checkout=cancel`,
       client_reference_id: companyId,
       subscription_data: {
+        ...(trialEndUnix ? { trial_end: trialEndUnix } : {}),
         metadata: {
           company_id: companyId,
           billing_plan_id: checkoutBillingPlanId ?? '',

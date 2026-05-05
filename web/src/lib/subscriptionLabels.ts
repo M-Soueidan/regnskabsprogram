@@ -14,7 +14,7 @@ export function subscriptionStatusLabelDa(status: string | null | undefined): st
     case 'unpaid':
       return 'Ubetalt'
     case 'incomplete':
-      return 'Ikke fuldført'
+      return 'Ikke aktiv'
     case 'incomplete_expired':
       return 'Udløbet'
     default:

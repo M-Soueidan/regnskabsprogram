@@ -186,23 +186,35 @@ export function MorePage() {
   const navigate = useNavigate()
   const checkout = useStripeCheckoutLauncher()
 
-  const [priceCents, setPriceCents] = useState<number | null>(null)
+  const [chosenPlan, setChosenPlan] = useState<{
+    id: string
+    monthly_price_cents: number
+  } | null>(null)
+  const subscriptionPlanId = subscription?.billing_plan_id ?? null
   useEffect(() => {
     let cancelled = false
     void (async () => {
       const { data } = await supabase
-        .from('platform_public_settings')
-        .select('pricing_amount_cents, monthly_price_cents')
-        .eq('id', 1)
-        .maybeSingle()
+        .from('billing_plans')
+        .select('id, slug, monthly_price_cents')
+        .eq('active', true)
+        .eq('marketing_hidden', false)
+        .order('sort_order', { ascending: true })
+        .order('monthly_price_cents', { ascending: true })
       if (cancelled) return
-      setPriceCents(data?.pricing_amount_cents ?? data?.monthly_price_cents ?? 9900)
+      const plans = data ?? []
+      const picked =
+        plans.find((p) => p.id === subscriptionPlanId) ??
+        plans.find((p) => p.slug === 'pro') ??
+        plans[0] ??
+        null
+      setChosenPlan(picked ? { id: picked.id, monthly_price_cents: picked.monthly_price_cents } : null)
     })()
     return () => {
       cancelled = true
     }
-  }, [])
-  const priceLabel = priceCents != null ? formatKrPerMonth(priceCents) : null
+  }, [subscriptionPlanId])
+  const priceLabel = chosenPlan ? formatKrPerMonth(chosenPlan.monthly_price_cents) : null
 
   async function logout() {
     await logoutToLanding(navigate)
@@ -231,7 +243,12 @@ export function MorePage() {
               type="button"
               disabled={checkout.loading}
               className="mt-3 inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-80 sm:mt-0 sm:w-auto sm:px-4"
-              onClick={() => void checkout.launch(currentCompany.id)}
+              onClick={() =>
+                void checkout.launch(
+                  currentCompany.id,
+                  chosenPlan ? { billingPlanId: chosenPlan.id } : undefined,
+                )
+              }
             >
               {checkout.loading ? <ButtonSpinner /> : null}
               {checkout.loading ? 'Åbner Stripe…' : 'Tilføj kortoplysninger'}
@@ -249,7 +266,12 @@ export function MorePage() {
               type="button"
               disabled={checkout.loading}
               className="mt-3 inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-80 sm:mt-0 sm:w-auto sm:px-4"
-              onClick={() => void checkout.launch(currentCompany.id)}
+              onClick={() =>
+                void checkout.launch(
+                  currentCompany.id,
+                  chosenPlan ? { billingPlanId: chosenPlan.id } : undefined,
+                )
+              }
             >
               {checkout.loading ? <ButtonSpinner /> : null}
               {checkout.loading ? 'Åbner Stripe…' : 'Abonnér'}

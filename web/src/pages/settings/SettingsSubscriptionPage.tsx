@@ -28,6 +28,11 @@ export function SettingsSubscriptionPage() {
   const priceLabel = priceCents != null ? formatKrPerMonth(priceCents) : null
   const checkout = useStripeCheckoutLauncher()
   const currentPlanId = billingEntitlements[0]?.plan_id ?? subscription?.billing_plan_id ?? null
+  const chosenPlanId = useMemo(() => {
+    if (currentPlanId) return currentPlanId
+    if (priceCents == null) return null
+    return plans.find((plan) => plan.monthly_price_cents === priceCents)?.id ?? null
+  }, [currentPlanId, plans, priceCents])
   const currentPlan = useMemo(
     () => plans.find((plan) => plan.id === currentPlanId) ?? null,
     [currentPlanId, plans],
@@ -201,8 +206,10 @@ export function SettingsSubscriptionPage() {
           ) : null}
           <div className="mt-5 grid gap-4 lg:grid-cols-3">
             {plans.map((plan) => {
-              const isCurrent = plan.id === currentPlanId
-              const isChanging = changingPlanId === plan.id || (checkout.loading && !isCurrent)
+              const isCurrent = ok && plan.id === currentPlanId
+              const isChosen = !isCurrent && plan.id === chosenPlanId
+              const isHighlighted = isCurrent || isChosen
+              const isChanging = changingPlanId === plan.id || (checkout.loading && !isHighlighted)
               const relation =
                 plan.monthly_price_cents > currentPlanPrice
                   ? 'Opgrader'
@@ -215,7 +222,7 @@ export function SettingsSubscriptionPage() {
                   key={plan.id}
                   className={
                     'flex flex-col rounded-2xl border p-5 ' +
-                    (isCurrent
+                    (isHighlighted
                       ? 'border-indigo-300 bg-indigo-50/40 ring-1 ring-indigo-200'
                       : 'border-slate-200 bg-white')
                   }
@@ -232,6 +239,10 @@ export function SettingsSubscriptionPage() {
                     {isCurrent ? (
                       <span className="rounded-full bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white">
                         Nuværende
+                      </span>
+                    ) : isChosen ? (
+                      <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-700">
+                        Valgt
                       </span>
                     ) : null}
                   </div>
@@ -256,17 +267,21 @@ export function SettingsSubscriptionPage() {
 
                   <button
                     type="button"
-                    disabled={isCurrent || isChanging}
+                    disabled={isHighlighted || isChanging}
                     onClick={() => void choosePlan(plan)}
                     className={
                       'mt-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ' +
-                      (isCurrent
+                      (isHighlighted
                         ? 'bg-slate-100 text-slate-500'
                         : 'bg-indigo-600 text-white hover:bg-indigo-700')
                     }
                   >
                     {isChanging ? <ButtonSpinner /> : null}
-                    {isCurrent ? 'Din nuværende plan' : `${relation} til ${plan.name}`}
+                    {isCurrent
+                      ? 'Din nuværende plan'
+                      : isChosen
+                        ? 'Valgte abonnement'
+                        : `${relation} til ${plan.name}`}
                   </button>
                 </article>
               )
